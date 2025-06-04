@@ -1,10 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart'; // Importe para usar o Timestamp, se necessário
+// user_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
   final String uid;
   final String name;
   final String email;
   final String phone;
+  final String userType; // Novo campo para o tipo de usuário
   final String profession;
   final String experience;
   final String skills;
@@ -19,32 +21,33 @@ class UserModel {
     required this.name,
     required this.email,
     required this.phone,
-    required this.profession,
-    required this.experience,
-    required this.skills,
-    required this.aboutMe,
-    required this.photoUrl,
-    required this.jobsCompleted,
-    required this.jobsNotAttended,
-    required this.feedbacks,
+    required this.userType, // Adicionar ao construtor
+    this.profession = '', // Adicionado default para evitar null se não for prestador
+    this.experience = '', // Adicionado default
+    this.skills = '', // Adicionado default
+    this.aboutMe = '', // Adicionado default
+    this.photoUrl = '',
+    this.jobsCompleted = const [],
+    this.jobsNotAttended = const [],
+    this.feedbacks = const [],
   });
 
-  factory UserModel.fromDocument(Map<String, dynamic> doc, String uid) {
+  factory UserModel.fromDocument(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return UserModel(
-      uid: uid,
-      name: doc['name'] ?? '',
-      email: doc['email'] ?? '',
-      phone: doc['phone'] ?? '',
-      profession: doc['profession'] ?? '',
-      experience: doc['experience'] ?? '',
-      skills: doc['skills'] ?? '',
-      aboutMe: doc['aboutMe'] ?? '',
-      photoUrl: doc['photoUrl'] ?? '',
-      // Certifique-se de que jobsCompleted e jobsNotAttended são listas de Strings
-      jobsCompleted: List<String>.from(doc['jobsCompleted'] ?? []),
-      jobsNotAttended: List<String>.from(doc['jobsNotAttended'] ?? []),
-      // Certifique-se de que feedbacks são listas de Map<String, dynamic>
-      feedbacks: List<Map<String, dynamic>>.from(doc['feedbacks'] ?? []),
+      uid: doc.id, // uid vem do doc.id agora
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      phone: data['phone'] ?? '',
+      userType: data['userType'] ?? 'prestador', // Define um valor padrão, ou trate a lógica de cadastro
+      profession: data['profession'] ?? '',
+      experience: data['experience'] ?? '',
+      skills: data['skills'] ?? '',
+      aboutMe: data['aboutMe'] ?? '',
+      photoUrl: data['photoUrl'] ?? '',
+      jobsCompleted: List<String>.from(data['jobsCompleted'] ?? []),
+      jobsNotAttended: List<String>.from(data['jobsNotAttended'] ?? []),
+      feedbacks: List<Map<String, dynamic>>.from(data['feedbacks'] ?? []),
     );
   }
 
@@ -53,6 +56,7 @@ class UserModel {
       'name': name,
       'email': email,
       'phone': phone,
+      'userType': userType, // Adicionar ao toMap
       'profession': profession,
       'experience': experience,
       'skills': skills,

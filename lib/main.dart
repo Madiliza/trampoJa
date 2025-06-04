@@ -13,7 +13,7 @@ Future<void> main() async {
   );
 
   // A verificação do usuário será feita de forma reativa na tela inicial (AuthWrapper)
-  runApp(App());
+  runApp(const App());
 }
 
 class App extends StatelessWidget {
@@ -28,14 +28,14 @@ class App extends StatelessWidget {
       title: "Trampo Já",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.orange),
-      home: AuthWrapper(), // Usar um AuthWrapper para gerenciar a navegação inicial
+      home: const AuthWrapper(), // Usar um AuthWrapper para gerenciar a navegação inicial
     );
   }
 }
 
 // Novo Widget para gerenciar o estado de autenticação inicial
 class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({Key? key}) : super(key: key);
+  const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {

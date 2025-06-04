@@ -1,79 +1,64 @@
+// job_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-// Certifique-se de que este caminho está correto para o seu arquivo JobModel.dart
+import 'package:firebase_auth/firebase_auth.dart'; // Importar FirebaseAuth
 import 'package:trampoja_app/models/JobModel.dart';
-import 'package:firebase_core/firebase_core.dart'; // Necessário para Firebase.initializeApp
-// import 'firebase_options.dart'; // Descomente e gere este arquivo com 'flutterfire configure'
+import 'package:trampoja_app/models/UserModel.dart';
 
 // Definição das cores da paleta
-const Color laranjaVivo = Color(0xFFFF6F00); // Cor principal, botões, destaques
-const Color laranjaSuave = Color(
-  0xFFFFA040,
-); // Hover, ícones, realces secundários
-const Color pessegoClaro = Color(
-  0xFFFEE0B2,
-); // Fundo de seções, cartões, contrastes
-const Color cinzaEscuro = Color(0xFF333333); // Texto principal, títulos
-const Color cinzaClaro = Color(0xFFF5F5F5); // Fundo principal, áreas neutras
-const Color branco = Color(0xFFFFFFFF); // Fundo, espaços em branco, contraste
+const Color laranjaVivo = Color(0xFFFF6F00);
+const Color laranjaSuave = Color(0xFFFFA040);
+const Color pessegoClaro = Color(0xFFFEE0B2);
+const Color cinzaEscuro = Color(0xFF333333);
+const Color cinzaClaro = Color(0xFFF5F5F5);
+const Color branco = Color(0xFFFFFFFF);
 
-/// A tela principal para exibir e gerenciar vagas.
 class JobScreen extends StatefulWidget {
-  const JobScreen({super.key}); // Use const para o construtor
+  const JobScreen({super.key});
 
   @override
   State<JobScreen> createState() => _JobScreenState();
 }
 
 class _JobScreenState extends State<JobScreen> {
-  // Instância do Firestore para interagir com o banco de dados
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance; // Instância do FirebaseAuth
 
-  // Controladores para os campos de texto do formulário de criação de vaga
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _valueController =
-      TextEditingController(); // Novo controlador para o valor
+  final TextEditingController _valueController = TextEditingController();
 
   /// Adiciona uma nova vaga à coleção 'jobs' no Firestore.
-  /// Limpa os campos do formulário e fecha o diálogo após a adição.
-  void _addJob() async {
-    if (_titleController.text.isNotEmpty &&
-        _descriptionController.text.isNotEmpty) {
-      final double? jobValue = double.tryParse(
-        _valueController.text.replaceAll(',', '.'),
-      );
+  /// A vaga será associada ao UID do usuário contratante que a criou.
+  void _addJob(String userId) async {
+    if (_titleController.text.isNotEmpty && _descriptionController.text.isNotEmpty) {
+      final double? jobValue = double.tryParse(_valueController.text.replaceAll(',', '.'));
 
       final newJob = Job(
         title: _titleController.text,
         description: _descriptionController.text,
         value: jobValue,
+        createdByUserId: userId, // Salva o UID do criador da vaga
       );
 
       try {
-        // Adiciona um novo documento à coleção 'jobs' com os dados da nova vaga
         await _firestore.collection('jobs').add(newJob.toFirestore());
-        // Verifica se o widget ainda está montado antes de usar o context
         if (!mounted) return;
         _titleController.clear();
         _descriptionController.clear();
         _valueController.clear();
-        Navigator.of(context).pop(); // Fecha o diálogo
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vaga criada com sucesso!')),
         );
       } catch (e) {
-        // Em caso de erro, imprime no console e mostra um SnackBar.
         print('Erro ao adicionar vaga: $e');
-        // Verifica se o widget ainda está montado antes de usar o context
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao criar vaga: $e')),
         );
       }
     } else {
-      // Mostra um SnackBar se os campos obrigatórios não forem preenchidos
-      // Verifica se o widget ainda está montado antes de usar o context
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, preencha o título e a descrição da vaga.')),
@@ -81,16 +66,33 @@ class _JobScreenState extends State<JobScreen> {
     }
   }
 
+  /// Exclui uma vaga do Firestore.
+  void _deleteJob(String jobId) async {
+    try {
+      await _firestore.collection('jobs').doc(jobId).delete();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vaga excluída com sucesso!')),
+      );
+    } catch (e) {
+      print('Erro ao excluir vaga: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao excluir vaga: $e')),
+      );
+    }
+  }
+
   /// Exibe um diálogo para o usuário criar uma nova vaga.
-  void _showCreateJobDialog() {
+  void _showCreateJobDialog(String userId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: branco, // Fundo do diálogo
+          backgroundColor: branco,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-          ), // Cantos arredondados
+          ),
           title: const Text(
             'Criar Nova Vaga',
             style: TextStyle(color: cinzaEscuro, fontWeight: FontWeight.bold),
@@ -105,32 +107,23 @@ class _JobScreenState extends State<JobScreen> {
                     labelText: 'Título da Vaga',
                     labelStyle: const TextStyle(color: cinzaEscuro),
                     enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(
-                        color: laranjaSuave,
-                      ), // Borda quando não focado
+                      borderSide: const BorderSide(color: laranjaSuave),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(
-                        color: laranjaVivo,
-                        width: 2,
-                      ), // Borda quando focado
+                      borderSide: const BorderSide(color: laranjaVivo, width: 2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     filled: true,
-                    fillColor: cinzaClaro.withOpacity(
-                      0.5,
-                    ), // Leve preenchimento
+                    fillColor: cinzaClaro.withOpacity(0.5),
                   ),
-                  cursorColor: laranjaVivo, // Cor do cursor
-                  style: const TextStyle(
-                    color: cinzaEscuro,
-                  ), // Estilo do texto digitado
+                  cursorColor: laranjaVivo,
+                  style: const TextStyle(color: cinzaEscuro),
                 ),
-                const SizedBox(height: 15), // Espaçamento entre os campos
+                const SizedBox(height: 15),
                 TextField(
                   controller: _descriptionController,
-                  maxLines: 3, // Permite múltiplas linhas para a descrição
+                  maxLines: 3,
                   decoration: InputDecoration(
                     labelText: 'Descrição da Vaga',
                     labelStyle: const TextStyle(color: cinzaEscuro),
@@ -148,14 +141,12 @@ class _JobScreenState extends State<JobScreen> {
                   cursorColor: laranjaVivo,
                   style: const TextStyle(color: cinzaEscuro),
                 ),
-                const SizedBox(height: 15), // Espaçamento entre os campos
+                const SizedBox(height: 15),
                 TextField(
                   controller: _valueController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ), // Teclado numérico com suporte a decimal
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: 'Valor (R\$)', // Novo campo para o valor
+                    labelText: 'Valor (R\$)',
                     labelStyle: const TextStyle(color: cinzaEscuro),
                     enabledBorder: OutlineInputBorder(
                       borderSide: const BorderSide(color: laranjaSuave),
@@ -177,31 +168,25 @@ class _JobScreenState extends State<JobScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fecha o diálogo sem salvar
-                _titleController.clear(); // Limpa os campos ao cancelar
+                Navigator.of(context).pop();
+                _titleController.clear();
                 _descriptionController.clear();
                 _valueController.clear();
               },
-              child: Text('Cancelar', style: TextStyle(color: cinzaEscuro)),
+              child: const Text('Cancelar', style: TextStyle(color: cinzaEscuro)),
             ),
             ElevatedButton(
-              onPressed: _addJob, // Chama a função para adicionar a vaga
+              onPressed: () => _addJob(userId), // Passa o userId para _addJob
               style: ElevatedButton.styleFrom(
-                backgroundColor: laranjaVivo, // Cor de fundo do botão
+                backgroundColor: laranjaVivo,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                ), // Cantos arredondados
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
                 ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               ),
-              child: Text(
+              child: const Text(
                 'Criar Vaga',
-                style: TextStyle(
-                  color: branco,
-                  fontWeight: FontWeight.bold,
-                ), // Texto do botão
+                style: TextStyle(color: branco, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -210,280 +195,335 @@ class _JobScreenState extends State<JobScreen> {
     );
   }
 
+  /// Aceita uma vaga e adiciona o ID da vaga aos 'jobsCompleted' do usuário prestador.
+  void _acceptJob(String jobId, String userId) async {
+    try {
+      await _firestore.collection('jobs').doc(jobId).update({
+        'accepted': true,
+        'declined': false,
+        'acceptedByUserId': userId, // Salva quem aceitou a vaga
+      });
+
+      // Adiciona o jobId à lista de trabalhos aceitos do usuário
+      await _firestore.collection('users').doc(userId).update({
+        'jobsCompleted': FieldValue.arrayUnion([jobId]),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vaga aceita com sucesso!')),
+      );
+    } catch (e) {
+      print('Erro ao aceitar vaga: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao aceitar vaga: $e')),
+      );
+    }
+  }
+
+  /// Recusa uma vaga.
+  void _declineJob(String jobId, String userId) async {
+    try {
+      await _firestore.collection('jobs').doc(jobId).update({
+        'declined': true,
+        'accepted': false,
+        // Você pode adicionar um campo 'declinedByUserId' se quiser rastrear quem recusou.
+      });
+
+      // Remove o jobId da lista de trabalhos aceitos (se já estiver lá e for recusado)
+      await _firestore.collection('users').doc(userId).update({
+        'jobsCompleted': FieldValue.arrayRemove([jobId]),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vaga recusada com sucesso!')),
+      );
+    } catch (e) {
+      print('Erro ao recusar vaga: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao recusar vaga: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: cinzaClaro, // Cor de fundo principal da tela
+      backgroundColor: cinzaClaro,
       appBar: AppBar(
-        title: Text(
-          'Vagas Disponíveis',
+        title: const Text(
+          'Vagas',
           style: TextStyle(color: branco, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: laranjaVivo, // Cor da barra superior
-        elevation: 0, // Remove a sombra da barra superior
-        centerTitle: true, // Centraliza o título
+        backgroundColor: laranjaVivo,
+        elevation: 0,
+        centerTitle: true,
       ),
-      // StreamBuilder para ouvir as mudanças na coleção 'jobs' em tempo real
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('jobs').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Erro ao carregar vagas: ${snapshot.error}',
-                style: TextStyle(color: cinzaEscuro),
-              ),
+      body: StreamBuilder<User?>(
+        stream: _auth.authStateChanges(),
+        builder: (context, authSnapshot) {
+          if (authSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final currentUser = authSnapshot.data;
+
+          if (currentUser == null) {
+            return const Center(
+              child: Text('Faça login para ver as vagas.',
+                  style: TextStyle(fontSize: 18, color: cinzaEscuro)),
             );
           }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: laranjaVivo));
-          }
+          // Busca o tipo de usuário do Firestore
+          return StreamBuilder<DocumentSnapshot>(
+            stream: _firestore.collection('users').doc(currentUser.uid).snapshots(),
+            builder: (context, userDocSnapshot) {
+              if (userDocSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          // Mapeia os documentos do Firestore para objetos Job
-          final jobs = snapshot.data!.docs.map((doc) {
-            return Job.fromFirestore(doc); // Usa o construtor de fábrica atualizado
-          }).toList();
+              if (userDocSnapshot.hasError || !userDocSnapshot.hasData || !userDocSnapshot.data!.exists) {
+                return const Center(child: Text('Erro ao carregar dados do usuário.'));
+              }
 
-          if (jobs.isEmpty) {
-            return Center(
-              child: Text(
-                'Nenhuma vaga disponível no momento. Crie uma!',
-                style: TextStyle(fontSize: 18, color: cinzaEscuro),
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
+              final userData = UserModel.fromDocument(userDocSnapshot.data!);
+              final isContratante = userData.userType == 'contratante';
+              final isPrestador = userData.userType == 'prestador';
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0), // Preenchimento da lista
-            itemCount: jobs.length, // Número de itens na lista
-            itemBuilder: (context, index) {
-              final job = jobs[index]; // Pega a vaga atual do stream do Firestore
-              return Card(
-                color: pessegoClaro, // Cor de fundo do cartão da vaga
-                margin: const EdgeInsets.only(
-                  bottom: 16.0,
-                ), // Margem inferior para cada cartão
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ), // Cantos arredondados
-                elevation: 4, // Sombra do cartão
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        job.title,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: cinzaEscuro,
-                        ),
+              Stream<QuerySnapshot> jobStream;
+              if (isContratante) {
+                // Contratante vê apenas as vagas que ele criou
+                jobStream = _firestore.collection('jobs')
+                    .where('createdByUserId', isEqualTo: currentUser.uid)
+                    .snapshots();
+              } else {
+                // Prestador de serviço vê todas as vagas
+                jobStream = _firestore.collection('jobs').snapshots();
+              }
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: jobStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Erro ao carregar vagas: ${snapshot.error}',
+                        style: const TextStyle(color: cinzaEscuro),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        job.description,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: cinzaEscuro.withOpacity(
-                            0.8,
-                          ), // Texto com opacidade para contraste
-                        ),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: laranjaVivo));
+                  }
+
+                  final jobs = snapshot.data!.docs.map((doc) {
+                    return Job.fromFirestore(doc);
+                  }).toList();
+
+                  if (jobs.isEmpty) {
+                    return Center(
+                      child: Text(
+                        isContratante
+                            ? 'Você ainda não criou nenhuma vaga.'
+                            : 'Nenhuma vaga disponível no momento.',
+                        style: const TextStyle(fontSize: 18, color: cinzaEscuro),
+                        textAlign: TextAlign.center,
                       ),
-                      if (job.value != null) // Mostra o valor se ele existir
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'Valor: R\$ ${job.value!.toStringAsFixed(2).replaceAll('.', ',')}', // Formata para 2 casas decimais e usa vírgula
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: laranjaVivo, // Cor do valor
-                            ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: jobs.length,
+                    itemBuilder: (context, index) {
+                      final job = jobs[index];
+                      return Card(
+                        color: pessegoClaro,
+                        margin: const EdgeInsets.only(bottom: 16.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        elevation: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                job.title,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: cinzaEscuro,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                job.description,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: cinzaEscuro.withOpacity(0.8),
+                                ),
+                              ),
+                              if (job.value != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(
+                                    'Valor: R\$ ${job.value!.toStringAsFixed(2).replaceAll('.', ',')}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: laranjaVivo,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (isContratante)
+                                    ElevatedButton.icon(
+                                      onPressed: () => _deleteJob(job.id!), // Botão de excluir para contratantes
+                                      icon: const Icon(Icons.delete, color: branco),
+                                      label: const Text('Excluir', style: TextStyle(color: branco)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                      ),
+                                    ),
+                                  if (isPrestador && !job.accepted && !job.declined)
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _acceptJob(job.id!, currentUser.uid),
+                                        icon: const Icon(Icons.check, color: branco),
+                                        label: const Text('Aceitar', style: TextStyle(color: branco)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: laranjaVivo,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  if (isPrestador && !job.accepted && !job.declined)
+                                    const SizedBox(width: 10),
+                                  if (isPrestador && !job.accepted && !job.declined)
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _declineJob(job.id!, currentUser.uid),
+                                        icon: const Icon(Icons.close, color: cinzaEscuro),
+                                        label: const Text('Recusar', style: TextStyle(color: cinzaEscuro)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: laranjaSuave,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  if (isPrestador && job.accepted)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade100,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Vaga Aceita!',
+                                            style: TextStyle(
+                                              color: Colors.green.shade700,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (isPrestador && job.declined)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade100,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.cancel, color: Colors.red.shade700, size: 20),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Vaga Recusada!',
+                                            style: TextStyle(
+                                              color: Colors.red.shade700,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment
-                            .end, // Alinha os botões à direita
-                        children: [
-                          // Exibe os botões "Aceitar" e "Recusar" apenas se a vaga não foi aceita ou recusada
-                          if (!job.accepted && !job.declined)
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  // Atualiza o status da vaga no Firestore
-                                  try {
-                                    await _firestore
-                                        .collection('jobs')
-                                        .doc(job.id)
-                                        .update({
-                                      'accepted': true,
-                                      'declined': false,
-                                    });
-                                    // Verifica se o widget ainda está montado antes de usar o context
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Vaga aceita com sucesso!')),
-                                    );
-                                  } catch (e) {
-                                    print('Erro ao aceitar vaga: $e');
-                                    // Verifica se o widget ainda está montado antes de usar o context
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Erro ao aceitar vaga: $e')),
-                                    );
-                                  }
-                                },
-                                icon: Icon(
-                                  Icons.check,
-                                  color: branco,
-                                ), // Ícone de check
-                                label: Text(
-                                  'Aceitar',
-                                  style: TextStyle(color: branco),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      laranjaVivo, // Cor de fundo do botão "Aceitar"
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (!job.accepted && !job.declined)
-                            const SizedBox(
-                              width: 10,
-                            ), // Espaçamento entre os botões
-                          if (!job.accepted && !job.declined)
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  // Atualiza o status da vaga no Firestore
-                                  try {
-                                    await _firestore
-                                        .collection('jobs')
-                                        .doc(job.id)
-                                        .update({
-                                      'declined': true,
-                                      'accepted': false,
-                                    });
-                                    // Verifica se o widget ainda está montado antes de usar o context
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Vaga recusada com sucesso!')),
-                                    );
-                                  } catch (e) {
-                                    print('Erro ao recusar vaga: $e');
-                                    // Verifica se o widget ainda está montado antes de usar o context
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Erro ao recusar vaga: $e')),
-                                    );
-                                  }
-                                },
-                                icon: Icon(
-                                  Icons.close,
-                                  color: cinzaEscuro,
-                                ), // Ícone de fechar
-                                label: Text(
-                                  'Recusar',
-                                  style: TextStyle(color: cinzaEscuro),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      laranjaSuave, // Cor de fundo do botão "Recusar"
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          // Exibe o status "Vaga Aceita!" se a vaga foi aceita
-                          if (job.accepted)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors
-                                    .green
-                                    .shade100, // Fundo verde claro
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green.shade700,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'Vaga Aceita!',
-                                    style: TextStyle(
-                                      color: Colors.green.shade700,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          // Exibe o status "Vaga Recusada!" se a vaga foi recusada
-                          if (job.declined)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors
-                                    .red
-                                    .shade100, // Fundo vermelho claro
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.cancel,
-                                    color: Colors.red.shade700,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'Vaga Recusada!',
-                                    style: TextStyle(
-                                      color: Colors.red.shade700,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                      );
+                    },
+                  );
+                },
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateJobDialog, // Abre o diálogo para criar nova vaga
-        backgroundColor: laranjaVivo, // Cor do botão flutuante
-        child: const Icon(Icons.add, color: branco), // Ícone de adicionar
+      floatingActionButton: StreamBuilder<User?>(
+        stream: _auth.authStateChanges(),
+        builder: (context, authSnapshot) {
+          if (authSnapshot.connectionState == ConnectionState.waiting) {
+            return Container(); // Ou um CircularProgressIndicator pequeno
+          }
+          final currentUser = authSnapshot.data;
+          if (currentUser == null) {
+            return Container();
+          }
+
+          // Busca o tipo de usuário para decidir se exibe o FAB
+          return FutureBuilder<DocumentSnapshot>(
+            future: _firestore.collection('users').doc(currentUser.uid).get(),
+            builder: (context, userDocSnapshot) {
+              if (userDocSnapshot.connectionState == ConnectionState.waiting) {
+                return Container();
+              }
+              if (userDocSnapshot.hasError || !userDocSnapshot.hasData || !userDocSnapshot.data!.exists) {
+                return Container();
+              }
+
+              final userData = UserModel.fromDocument(userDocSnapshot.data!);
+              final isContratante = userData.userType == 'contratante';
+
+              if (isContratante) {
+                return FloatingActionButton(
+                  onPressed: () => _showCreateJobDialog(currentUser.uid), // Passa o UID do usuário
+                  backgroundColor: laranjaVivo,
+                  child: const Icon(Icons.add, color: branco),
+                );
+              } else {
+                return Container(); // Não exibe o botão para prestadores
+              }
+            },
+          );
+        },
       ),
     );
   }

@@ -1,12 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart'; // Importe o pacote de autenticação
-import 'package:cloud_firestore/cloud_firestore.dart'; // Importe o pacote do Firestore
+// auth_service.dart
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/UserModel.dart'; // Seu modelo de usuário
 
 class AuthService {
-  // Não precisamos mais da API Key e Project ID aqui para operações do SDK
-  // final String apiKey = 'AIzaSyAfOdibv5xLcfr0L5Rgb34uH9KinkIITwE';
-  // final String projectId = 'trampoja-ff176';
-
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -18,15 +15,14 @@ class AuthService {
         password: password,
       );
 
-      // Se o login for bem-sucedido, o SDK já atualizou o estado interno.
-      // Agora podemos buscar os dados do Firestore usando o SDK do Firestore.
       final User? user = userCredential.user;
       if (user != null) {
         print('AuthService: Login bem-sucedido para UID: ${user.uid}');
         final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
 
         if (docSnapshot.exists) {
-          final userData = UserModel.fromDocument(docSnapshot.data()!, user.uid);
+          // Passamos o doc.id (user.uid) explicitamente para o fromDocument
+          final userData = UserModel.fromDocument(docSnapshot);
           return {
             'success': true,
             'user': userData, // Retorna o UserModel completo
@@ -73,7 +69,7 @@ class AuthService {
       String email,
       String password,
       String name,
-      String userType, // userType não está sendo usado no UserModel, mas mantido aqui
+      String userType, // userType agora é usado
       ) async {
     try {
       UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
@@ -85,23 +81,24 @@ class AuthService {
       if (user != null) {
         print('AuthService: Registro bem-sucedido para UID: ${user.uid}');
 
-        // Criar o modelo de usuário inicial
+        // Criar o modelo de usuário inicial, passando o userType recebido
         final newUserModel = UserModel(
           uid: user.uid,
           name: name,
           email: email,
           phone: '',
+          userType: userType, // 🔥 AQUI: userType está sendo passado corretamente
           profession: '',
           experience: '',
           skills: '',
           aboutMe: '',
           photoUrl: '',
-          jobsCompleted: [],
-          jobsNotAttended: [],
-          feedbacks: [],
+          jobsCompleted: const [], // Usar const []
+          jobsNotAttended: const [], // Usar const []
+          feedbacks: const [], // Usar const []
         );
 
-        // Salvar os dados do usuário no Firestore usando o SDK do Firestore
+        // Salvar os dados do usuário no Firestore
         await _firestore.collection('users').doc(user.uid).set(newUserModel.toMap());
 
         print('AuthService: Dados do usuário salvos no Firestore para UID: ${user.uid}');
@@ -135,9 +132,7 @@ class AuthService {
     }
   }
 
-  // O método saveUserData não é mais necessário como uma função separada para HTTP.
-  // Ele será chamado diretamente dentro de register() e updateProfile() usando o SDK.
-  // Se você ainda precisar de uma função para atualizar dados do usuário, ela usaria o SDK do Firestore.
+  // Método para atualizar dados do usuário no Firestore
   Future<void> updateUserDataInFirestore(String uid, Map<String, dynamic> data) async {
     try {
       await _firestore.collection('users').doc(uid).update(data);
@@ -148,19 +143,16 @@ class AuthService {
     }
   }
 
-  // O método getUserData não é mais necessário como uma função separada para HTTP.
-  // Ele será chamado diretamente na ProfileScreen usando o SDK do Firestore.
-
-  // Método para fazer logout (usando o SDK)
+  // Método para fazer logout
   Future<void> logout() async {
     await _firebaseAuth.signOut();
     print('AuthService: Usuário deslogado.');
   }
 
-  // Stream para observar mudanças no estado de autenticação (melhor prática)
+  // Stream para observar mudanças no estado de autenticação
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
-  // Obter o usuário atual (use com cautela, prefira stream)
+  // Obter o usuário atual
   User? getCurrentUser() {
     return _firebaseAuth.currentUser;
   }

@@ -1,6 +1,8 @@
+// profile_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:trampoja_app/models/UserModel.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -12,7 +14,7 @@ class ProfileScreen extends StatelessWidget {
         title: const Text('Meu Perfil'),
         backgroundColor: const Color(0xFFFF6F00),
       ),
-      body: StreamBuilder<User?>( // Stream para o estado de autenticação
+      body: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, authSnapshot) {
           if (authSnapshot.connectionState == ConnectionState.waiting) {
@@ -22,7 +24,6 @@ class ProfileScreen extends StatelessWidget {
           final user = authSnapshot.data;
 
           if (user == null) {
-            // Se o usuário não está logado, exibe uma mensagem
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -43,12 +44,11 @@ class ProfileScreen extends StatelessWidget {
             );
           }
 
-          // Se o usuário está logado, agora usamos um StreamBuilder para os dados do Firestore
           return StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
                 .doc(user.uid)
-                .snapshots(), // <--- Usamos .snapshots() para ouvir em tempo real
+                .snapshots(),
             builder: (context, docSnapshot) {
               if (docSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -60,7 +60,6 @@ class ProfileScreen extends StatelessWidget {
               }
 
               if (!docSnapshot.hasData || !docSnapshot.data!.exists) {
-                // Caso o documento do usuário não exista no Firestore
                 print('Dados do usuário não encontrados para UID: ${user.uid}');
                 return const Center(
                   child: Column(
@@ -82,7 +81,9 @@ class ProfileScreen extends StatelessWidget {
                 );
               }
 
-              final userData = docSnapshot.data!.data() as Map<String, dynamic>;
+              final userData = UserModel.fromDocument(docSnapshot.data!);
+              final isContratante = userData.userType == 'contratante';
+              final isPrestador = userData.userType == 'prestador';
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -94,9 +95,8 @@ class ProfileScreen extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 60,
-                            backgroundImage: userData['photoUrl'] != null &&
-                                    userData['photoUrl'].toString().isNotEmpty
-                                ? NetworkImage(userData['photoUrl'])
+                            backgroundImage: userData.photoUrl.isNotEmpty
+                                ? NetworkImage(userData.photoUrl)
                                 : const NetworkImage('https://via.placeholder.com/150'),
                           ),
                           Positioned(
@@ -105,7 +105,7 @@ class ProfileScreen extends StatelessWidget {
                             child: InkWell(
                               onTap: () {
                                 final controller = TextEditingController(
-                                    text: userData['photoUrl'] ?? '');
+                                    text: userData.photoUrl);
                                 _showEditDialog(
                                   context: context,
                                   title: 'Editar Foto',
@@ -128,19 +128,20 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // Nome e profissão
+                    // Nome e profissão (profissão só para prestador)
                     Text(
-                      userData['name'] ?? 'Sem nome',
+                      userData.name,
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      userData['profession'] ?? 'Sem profissão',
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
+                    if (isPrestador && userData.profession.isNotEmpty)
+                      Text(
+                        userData.profession,
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
                     const SizedBox(height: 24),
 
-                    // Dados pessoais
+                    // Dados pessoais (para ambos)
                     _buildSection(
                       context,
                       title: 'Dados Pessoais e Segurança',
@@ -148,8 +149,8 @@ class ProfileScreen extends StatelessWidget {
                       content: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _infoRow('Email', userData['email'] ?? ''),
-                          _infoRow('Telefone', userData['phone'] ?? 'Não informado'),
+                          _infoRow('Email', userData.email),
+                          _infoRow('Telefone', userData.phone),
                           _infoRow('Senha', '********'),
                           const SizedBox(height: 8),
                           _editButton(() {
@@ -157,8 +158,8 @@ class ProfileScreen extends StatelessWidget {
                               context: context,
                               title: 'Editar Dados Pessoais',
                               controllers: {
-                                'name': TextEditingController(text: userData['name'] ?? ''),
-                                'phone': TextEditingController(text: userData['phone'] ?? ''),
+                                'name': TextEditingController(text: userData.name),
+                                'phone': TextEditingController(text: userData.phone),
                               },
                               onSave: (data) {
                                 _updateUserData(context, user.uid, data);
@@ -169,37 +170,38 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // Informações profissionais
-                    _buildSection(
-                      context,
-                      title: 'Informações Profissionais',
-                      icon: Icons.work,
-                      content: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _infoRow('Profissão', userData['profession'] ?? ''),
-                          _infoRow('Experiência', userData['experience'] ?? ''),
-                          _infoRow('Habilidades', userData['skills'] ?? ''),
-                          const SizedBox(height: 8),
-                          _editButton(() {
-                            _showEditDialog(
-                              context: context,
-                              title: 'Editar Informações Profissionais',
-                              controllers: {
-                                'profession': TextEditingController(text: userData['profession'] ?? ''),
-                                'experience': TextEditingController(text: userData['experience'] ?? ''),
-                                'skills': TextEditingController(text: userData['skills'] ?? ''),
-                              },
-                              onSave: (data) {
-                                _updateUserData(context, user.uid, data);
-                              },
-                            );
-                          }),
-                        ],
+                    // Informações profissionais (apenas para prestadores)
+                    if (isPrestador)
+                      _buildSection(
+                        context,
+                        title: 'Informações Profissionais',
+                        icon: Icons.work,
+                        content: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _infoRow('Profissão', userData.profession),
+                            _infoRow('Experiência', userData.experience),
+                            _infoRow('Habilidades', userData.skills),
+                            const SizedBox(height: 8),
+                            _editButton(() {
+                              _showEditDialog(
+                                context: context,
+                                title: 'Editar Informações Profissionais',
+                                controllers: {
+                                  'profession': TextEditingController(text: userData.profession),
+                                  'experience': TextEditingController(text: userData.experience),
+                                  'skills': TextEditingController(text: userData.skills),
+                                },
+                                onSave: (data) {
+                                  _updateUserData(context, user.uid, data);
+                                },
+                              );
+                            }),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    // Sobre Mim
+                    // Sobre Mim (para ambos)
                     _buildSection(
                       context,
                       title: 'Sobre Mim',
@@ -208,7 +210,7 @@ class ProfileScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            userData['aboutMe'] ?? 'Sem descrição.',
+                            userData.aboutMe.isNotEmpty ? userData.aboutMe : 'Sem descrição.',
                             style: const TextStyle(fontSize: 14),
                           ),
                           const SizedBox(height: 8),
@@ -217,7 +219,7 @@ class ProfileScreen extends StatelessWidget {
                               context: context,
                               title: 'Editar Sobre Mim',
                               controllers: {
-                                'aboutMe': TextEditingController(text: userData['aboutMe'] ?? ''),
+                                'aboutMe': TextEditingController(text: userData.aboutMe),
                               },
                               onSave: (data) {
                                 _updateUserData(context, user.uid, {'aboutMe': data['aboutMe']});
@@ -228,12 +230,30 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // Exemplo de botão de Logout
+                    // Trabalhos Aceitos (apenas para prestadores)
+                    if (isPrestador)
+                      _buildSection(
+                        context,
+                        title: 'Trabalhos Aceitos',
+                        icon: Icons.assignment_turned_in,
+                        content: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (userData.jobsCompleted.isEmpty)
+                              const Text('Nenhum trabalho aceito ainda.',
+                                  style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic))
+                            else
+                              ...userData.jobsCompleted.map((jobId) => _buildJobAcceptedItem(jobId, context)),
+                            const SizedBox(height: 8),
+                            // Você pode adicionar um botão aqui para ver mais detalhes ou gerenciar trabalhos
+                          ],
+                        ),
+                      ),
+
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: () async {
                         await FirebaseAuth.instance.signOut();
-                        // O AuthWrapper no main.dart cuidará do redirecionamento
                       },
                       icon: const Icon(Icons.logout, color: Colors.white),
                       label: const Text('Sair', style: TextStyle(color: Colors.white)),
@@ -327,7 +347,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
         ),
-        child: const Text('Editar'),
+        child: const Text('Editar', style: TextStyle(color: Colors.white)), // Corrigido para texto branco
       ),
     );
   }
@@ -368,9 +388,7 @@ class ProfileScreen extends StatelessWidget {
                 final data =
                     controllers.map((key, value) => MapEntry(key, value.text.trim()));
                 onSave(data);
-                Navigator.pop(context); // Fecha o diálogo
-                // A tela de perfil será atualizada automaticamente via StreamBuilder
-                // assim que o Firestore confirmar a atualização.
+                Navigator.pop(context);
               },
               child: const Text('Salvar'),
             ),
@@ -393,5 +411,38 @@ class ProfileScreen extends StatelessWidget {
         SnackBar(content: Text('Erro ao atualizar dados: $e')),
       );
     }
+  }
+
+  // Novo widget para exibir itens de trabalhos aceitos (apenas para prestadores)
+  Widget _buildJobAcceptedItem(String jobId, BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('jobs').doc(jobId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LinearProgressIndicator();
+        }
+        if (snapshot.hasError) {
+          return Text('Erro ao carregar trabalho: ${snapshot.error}');
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Text('Trabalho não encontrado.');
+        }
+
+        final jobData = snapshot.data!.data() as Map<String, dynamic>;
+        final jobTitle = jobData['title'] ?? 'Título indisponível';
+        final jobValue = (jobData['value'] as num?)?.toStringAsFixed(2).replaceAll('.', ',');
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(jobTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (jobValue != null) Text('R\$ $jobValue'),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
