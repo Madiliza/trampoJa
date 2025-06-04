@@ -1,11 +1,91 @@
 // profile_screen.dart
+import 'dart:io'; // Importe para File
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as FBAuth;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Importe o Supabase Flutter
 import 'package:trampoja_app/models/UserModel.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final ImagePicker _picker = ImagePicker(); // Instância do ImagePicker
+  // Remova: final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  // Instância do cliente Supabase (já inicializado no main.dart)
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  // Função para selecionar e fazer upload da imagem para o Supabase Storage
+  Future<void> _pickAndUploadImage(String userId) async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Nenhuma imagem selecionada.')),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Carregando imagem...')),
+        );
+      }
+
+      // Gere um nome único para o arquivo
+      final String fileName = 'profile_pictures/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      const String bucketName = 'imagens-do-app'; // Use o nome do seu bucket no Supabase
+
+      // Faça o upload para o Supabase Storage
+      final String path = await supabase.storage
+          .from(bucketName)
+          .upload(
+            fileName,
+            File(image.path),
+            fileOptions: const FileOptions(
+              cacheControl: '3600', // Cache por 1 hora
+              upsert: true, // Substitui o arquivo se já existir com o mesmo nome
+              contentType: 'image/jpeg', // Tipo de conteúdo da imagem
+            ),
+          );
+
+      // Obtenha a URL pública do arquivo (se o bucket for público ou tiver política de SELECT)
+      final String downloadUrl = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(path); // 'path' aqui é o fileName usado no upload
+
+      if (mounted) {
+        await _updateUserData(context, userId, {'photoUrl': downloadUrl});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto de perfil atualizada com sucesso!')),
+        );
+      }
+    } on StorageException catch (e) {
+      print('Erro no upload para Supabase Storage: ${e.message}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro no upload da imagem: ${e.message}')),
+        );
+      }
+    } catch (e) {
+      print('Erro inesperado ao selecionar/enviar imagem: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar a foto de perfil: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +94,7 @@ class ProfileScreen extends StatelessWidget {
         title: const Text('Meu Perfil'),
         backgroundColor: const Color(0xFFFF6F00),
       ),
-      body: StreamBuilder<User?>(
+      body: StreamBuilder<FBAuth.User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, authSnapshot) {
           if (authSnapshot.connectionState == ConnectionState.waiting) {
@@ -103,19 +183,7 @@ class ProfileScreen extends StatelessWidget {
                             bottom: 0,
                             right: 0,
                             child: InkWell(
-                              onTap: () {
-                                final controller = TextEditingController(
-                                    text: userData.photoUrl);
-                                _showEditDialog(
-                                  context: context,
-                                  title: 'Editar Foto',
-                                  controllers: {'URL da Foto': controller},
-                                  onSave: (data) {
-                                    _updateUserData(context, user.uid,
-                                        {'photoUrl': data['URL da Foto'] ?? ''});
-                                  },
-                                );
-                              },
+                              onTap: () => _pickAndUploadImage(user.uid), // Chamada da nova função
                               child: const CircleAvatar(
                                 radius: 18,
                                 backgroundColor: Color(0xFFFF6F00),
@@ -398,18 +466,21 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _updateUserData(
-      BuildContext context, String uid, Map<String, dynamic> data) async {
+  Future<void> _updateUserData(BuildContext context, String userId, Map<String, dynamic> data) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update(data);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dados atualizados com sucesso!')),
-      );
+      await FirebaseFirestore.instance.collection('users').doc(userId).update(data);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dados atualizados com sucesso!')),
+        );
+      }
     } catch (e) {
-      print('Erro ao atualizar dados do usuário: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao atualizar dados: $e')),
-      );
+      print('Erro ao atualizar dados: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar dados: $e')),
+        );
+      }
     }
   }
 

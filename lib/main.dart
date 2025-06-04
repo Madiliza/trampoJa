@@ -1,18 +1,32 @@
+// main.dart
+import 'package:firebase_auth/firebase_auth.dart' as FBAuth;
 import 'package:flutter/material.dart';
 import 'package:trampoja_app/screens/LoginScreen.dart';
-import 'package:trampoja_app/screens/homepage.dart'; // Certifique-se que homepage está correta
+import 'package:trampoja_app/screens/homepage.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // Este arquivo é gerado automaticamente pelo FlutterFire CLI
-import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Certifique-se de que está importado
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // --- Inicialização do Firebase ---
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, // Garanta que usa as opções padrão
+    options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // A verificação do usuário será feita de forma reativa na tela inicial (AuthWrapper)
+  // --- Inicialização do Supabase ---
+  await dotenv.load(fileName: ".env");
+
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!, 
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!, 
+    debug: true, // Mantenha como true para desenvolvimento
+    // authFlowType: AuthFlowType.pkce, // Mantenha se quiser, caso contrário pode remover
+  );
+
   runApp(const App());
 }
 
@@ -28,19 +42,18 @@ class App extends StatelessWidget {
       title: "Trampo Já",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.orange),
-      home: const AuthWrapper(), // Usar um AuthWrapper para gerenciar a navegação inicial
+      home: const AuthWrapper(),
     );
   }
 }
 
-// Novo Widget para gerenciar o estado de autenticação inicial
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return StreamBuilder<FBAuth.User?>(
+      stream: FBAuth.FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -50,11 +63,9 @@ class AuthWrapper extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          // Se o usuário está logado, vai para a Homepage
           print('Usuário logado no AuthWrapper: ${snapshot.data!.uid}');
           return const Homepage();
         } else {
-          // Se o usuário não está logado, vai para a LoginScreen
           print('Nenhum usuário logado no AuthWrapper.');
           return const LoginScreen();
         }
