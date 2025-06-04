@@ -1,273 +1,294 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _pages = const [
-    AboutMePage(),
-    OptionsPage(),
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            Expanded(
-              child: _TopButton(
-                label: 'Sobre Mim',
-                isSelected: _selectedIndex == 0,
-                onTap: () {
-                  setState(() {
-                    _selectedIndex = 0;
-                  });
-                },
-              ),
-            ),
-            Expanded(
-              child: _TopButton(
-                label: 'Opções',
-                isSelected: _selectedIndex == 1,
-                onTap: () {
-                  setState(() {
-                    _selectedIndex = 1;
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(2),
-          child: Container(
-            color: const Color(0xFFFF6F00), // Linha delicada abaixo
-            height: 2,
-          ),
-        ),
+        title: const Text('Meu Perfil'),
+        backgroundColor: const Color(0xFFFF6F00),
       ),
-      body: _pages[_selectedIndex],
-    );
-  }
-}
+      body: StreamBuilder<User?>( // Stream para o estado de autenticação
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, authSnapshot) {
+          if (authSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-class _TopButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool isSelected;
+          final user = authSnapshot.data;
 
-  const _TopButton({
-    required this.label,
-    required this.onTap,
-    required this.isSelected,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        height: kToolbarHeight,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? const Color(0xFFFF6F00) // Cor laranja quando selecionado
-                : const Color(0xFF333333), // Cor padrão quando não selecionado
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Página Sobre Mim
-class AboutMePage extends StatelessWidget {
-  const AboutMePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Foto de perfil
-          Center(
-            child: Stack(
-              children: [
-                const CircleAvatar(
-                  radius: 60,
-                  backgroundImage: NetworkImage(
-                    'https://via.placeholder.com/150', // URL da foto
+          if (user == null) {
+            // Se o usuário não está logado, exibe uma mensagem
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.person_off, size: 80, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'Você não está logado.',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: InkWell(
-                    onTap: () {
-                      // Função para alterar foto
-                    },
-                    child: const CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Color(0xFFFF6F00),
-                      child: Icon(Icons.edit, color: Colors.white, size: 18),
+                  SizedBox(height: 8),
+                  Text(
+                    'Faça login para ver seu perfil.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Se o usuário está logado, agora usamos um StreamBuilder para os dados do Firestore
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .snapshots(), // <--- Usamos .snapshots() para ouvir em tempo real
+            builder: (context, docSnapshot) {
+              if (docSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (docSnapshot.hasError) {
+                print('Erro ao carregar dados do Firestore: ${docSnapshot.error}');
+                return Center(child: Text('Erro ao carregar dados: ${docSnapshot.error}'));
+              }
+
+              if (!docSnapshot.hasData || !docSnapshot.data!.exists) {
+                // Caso o documento do usuário não exista no Firestore
+                print('Dados do usuário não encontrados para UID: ${user.uid}');
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.warning_amber, size: 80, color: Colors.amber),
+                      SizedBox(height: 16),
+                      Text(
+                        'Seu perfil ainda não foi criado.',
+                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Por favor, complete seu cadastro.',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final userData = docSnapshot.data!.data() as Map<String, dynamic>;
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Foto de perfil
+                    Center(
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 60,
+                            backgroundImage: userData['photoUrl'] != null &&
+                                    userData['photoUrl'].toString().isNotEmpty
+                                ? NetworkImage(userData['photoUrl'])
+                                : const NetworkImage('https://via.placeholder.com/150'),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: InkWell(
+                              onTap: () {
+                                final controller = TextEditingController(
+                                    text: userData['photoUrl'] ?? '');
+                                _showEditDialog(
+                                  context: context,
+                                  title: 'Editar Foto',
+                                  controllers: {'URL da Foto': controller},
+                                  onSave: (data) {
+                                    _updateUserData(context, user.uid,
+                                        {'photoUrl': data['URL da Foto'] ?? ''});
+                                  },
+                                );
+                              },
+                              child: const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Color(0xFFFF6F00),
+                                child: Icon(Icons.edit, color: Colors.white, size: 18),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+
+                    // Nome e profissão
+                    Text(
+                      userData['name'] ?? 'Sem nome',
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      userData['profession'] ?? 'Sem profissão',
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Dados pessoais
+                    _buildSection(
+                      context,
+                      title: 'Dados Pessoais e Segurança',
+                      icon: Icons.person,
+                      content: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _infoRow('Email', userData['email'] ?? ''),
+                          _infoRow('Telefone', userData['phone'] ?? 'Não informado'),
+                          _infoRow('Senha', '********'),
+                          const SizedBox(height: 8),
+                          _editButton(() {
+                            _showEditDialog(
+                              context: context,
+                              title: 'Editar Dados Pessoais',
+                              controllers: {
+                                'name': TextEditingController(text: userData['name'] ?? ''),
+                                'phone': TextEditingController(text: userData['phone'] ?? ''),
+                              },
+                              onSave: (data) {
+                                _updateUserData(context, user.uid, data);
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+
+                    // Informações profissionais
+                    _buildSection(
+                      context,
+                      title: 'Informações Profissionais',
+                      icon: Icons.work,
+                      content: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _infoRow('Profissão', userData['profession'] ?? ''),
+                          _infoRow('Experiência', userData['experience'] ?? ''),
+                          _infoRow('Habilidades', userData['skills'] ?? ''),
+                          const SizedBox(height: 8),
+                          _editButton(() {
+                            _showEditDialog(
+                              context: context,
+                              title: 'Editar Informações Profissionais',
+                              controllers: {
+                                'profession': TextEditingController(text: userData['profession'] ?? ''),
+                                'experience': TextEditingController(text: userData['experience'] ?? ''),
+                                'skills': TextEditingController(text: userData['skills'] ?? ''),
+                              },
+                              onSave: (data) {
+                                _updateUserData(context, user.uid, data);
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+
+                    // Sobre Mim
+                    _buildSection(
+                      context,
+                      title: 'Sobre Mim',
+                      icon: Icons.info,
+                      content: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userData['aboutMe'] ?? 'Sem descrição.',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 8),
+                          _editButton(() {
+                            _showEditDialog(
+                              context: context,
+                              title: 'Editar Sobre Mim',
+                              controllers: {
+                                'aboutMe': TextEditingController(text: userData['aboutMe'] ?? ''),
+                              },
+                              onSave: (data) {
+                                _updateUserData(context, user.uid, {'aboutMe': data['aboutMe']});
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+
+                    // Exemplo de botão de Logout
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await FirebaseAuth.instance.signOut();
+                        // O AuthWrapper no main.dart cuidará do redirecionamento
+                      },
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      label: const Text('Sair', style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          const Text(
-            'Seu Nome Aqui',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-
-          const Text(
-            'Profissão ou título',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
-
-          // Seções do Perfil
-          _buildSection(
-            context,
-            title: 'Dados Pessoais e Segurança',
-            icon: Icons.person,
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _infoRow('Email', 'email@email.com'),
-                _infoRow('Telefone', '(11) 91234-5678'),
-                _infoRow('Senha', '********'),
-                const SizedBox(height: 8),
-                _editButton(() {
-                  // Ação para editar dados pessoais
-                }),
-              ],
-            ),
-          ),
-
-          _buildSection(
-            context,
-            title: 'Informações Profissionais',
-            icon: Icons.work,
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _infoRow('Profissão', 'Designer Gráfico'),
-                _infoRow('Experiência', '5 anos'),
-                _infoRow('Habilidades', 'Photoshop, Figma, Illustrator'),
-                const SizedBox(height: 8),
-                _editButton(() {
-                  // Editar informações profissionais
-                }),
-              ],
-            ),
-          ),
-
-          _buildSection(
-            context,
-            title: 'Sobre Mim',
-            icon: Icons.info,
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sou um profissional apaixonado por design...',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                _editButton(() {
-                  // Editar Sobre Mim
-                }),
-              ],
-            ),
-          ),
-
-          _buildSection(
-            context,
-            title: 'Jobs Realizados',
-            icon: Icons.check_circle,
-            content: Column(
-              children: [
-                _jobItem('Design de Logo - Cliente X'),
-                _jobItem('Site Institucional - Cliente Y'),
-                _jobItem('Banner para Redes - Cliente Z'),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-
-          _buildSection(
-            context,
-            title: 'Jobs Não Compareceu',
-            icon: Icons.cancel,
-            content: Column(
-              children: [
-                _jobItem('Criação de Cartão - Cliente A'),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-
-          _buildSection(
-            context,
-            title: 'Feedbacks',
-            icon: Icons.reviews,
-            content: Column(
-              children: [
-                _feedbackItem('Cliente X', 'Ótimo trabalho, recomendo!', 5),
-                _feedbackItem('Cliente Y', 'Muito profissional.', 4),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ],
+              );
+            },
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSection(BuildContext context,
-      {required String title,
-        required IconData icon,
-        required Widget content}) {
+  // --- Funções Auxiliares (movidas para fora do build, mas ainda parte da classe para acesso ao context) ---
+
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Widget content,
+  }) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.symmetric(vertical: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
-      child: ExpansionTile(
-        leading: Icon(icon, color: const Color(0xFFFF6F00)),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            content,
+          ],
         ),
-        childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [content],
       ),
     );
   }
@@ -278,85 +299,99 @@ class AboutMePage extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Text(
               label,
               style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
           Expanded(
-            flex: 5,
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-            ),
+            flex: 3,
+            child: Text(value),
           ),
         ],
       ),
     );
   }
 
-  Widget _editButton(VoidCallback onTap) {
+  Widget _editButton(VoidCallback onPressed) {
     return Align(
       alignment: Alignment.centerRight,
-      child: TextButton.icon(
-        onPressed: onTap,
-        icon: const Icon(Icons.edit, size: 18, color: Color(0xFFFF6F00)),
-        label: const Text(
-          'Editar',
-          style: TextStyle(color: Color(0xFFFF6F00)),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
+        child: const Text('Editar'),
       ),
     );
   }
 
-  Widget _jobItem(String job) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.work, color: Colors.grey),
-      title: Text(job),
-    );
-  }
-
-  Widget _feedbackItem(String client, String feedback, int rating) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.person, color: Colors.grey),
-      title: Text(client),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(feedback),
-          Row(
-            children: List.generate(
-              5,
-                  (index) => Icon(
-                index < rating ? Icons.star : Icons.star_border,
-                color: Colors.amber,
-                size: 16,
-              ),
+  void _showEditDialog({
+    required BuildContext context,
+    required String title,
+    required Map<String, TextEditingController> controllers,
+    required Function(Map<String, dynamic>) onSave,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: Column(
+              children: controllers.entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: TextField(
+                    controller: entry.value,
+                    decoration: InputDecoration(
+                      labelText: entry.key,
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final data =
+                    controllers.map((key, value) => MapEntry(key, value.text.trim()));
+                onSave(data);
+                Navigator.pop(context); // Fecha o diálogo
+                // A tela de perfil será atualizada automaticamente via StreamBuilder
+                // assim que o Firestore confirmar a atualização.
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
     );
   }
-}
 
-// Página Opções
-class OptionsPage extends StatelessWidget {
-  const OptionsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Conteúdo de Opções',
-        style: TextStyle(fontSize: 20),
-      ),
-    );
+  Future<void> _updateUserData(
+      BuildContext context, String uid, Map<String, dynamic> data) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update(data);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dados atualizados com sucesso!')),
+      );
+    } catch (e) {
+      print('Erro ao atualizar dados do usuário: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao atualizar dados: $e')),
+      );
+    }
   }
 }

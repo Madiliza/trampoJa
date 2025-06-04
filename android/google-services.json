@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "65889322306",
+    "project_id": "trampoja-ff176",
+    "storage_bucket": "trampoja-ff176.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:65889322306:android:7bb7f62732e08d9de5b4db",
+        "android_client_info": {
+          "package_name": "android.permission.INTERNET"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfOdibv5xLcfr0L5Rgb34uH9KinkIITwE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

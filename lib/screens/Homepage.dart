@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:trampoja_app/Screens/CalendarScreen.dart';
 import 'package:trampoja_app/Screens/NotificationScreen.dart';
-import 'package:trampoja_app/Screens/ProfileScreen.dart';
+import 'package:trampoja_app/screens/ProfileScreen/ProfileScreen.dart'; // Corrija o caminho se necessário
 import 'package:trampoja_app/Screens/JobScreen.dart';
 import 'package:trampoja_app/screens/MessagesScreen.dart';
 
@@ -13,12 +13,12 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
-  int _selectedIndex = 2;
+  int _selectedIndex = 2; // Índice inicial para a tela de Vagas (JobScreen)
 
   final List<Widget> _screens = const [
     CalendarScreen(),
     NotificationScreen(),
-    JobScreen(), 
+    JobScreen(),
     MessagesScreen(),
     ProfileScreen(),
   ];
