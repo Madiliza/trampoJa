@@ -251,7 +251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    const Text(
                       'Faça login para ver seu perfil e acessar todas as funcionalidades.',
                       style: TextStyle(fontSize: 16, color: textColorSecondary),
                       textAlign: TextAlign.center,
@@ -293,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
-                        Text(
+                        const Text(
                           'Por favor, complete seu cadastro para continuar.',
                           style: TextStyle(fontSize: 16, color: textColorSecondary),
                           textAlign: TextAlign.center,
@@ -342,7 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (isPrestador && userData.profession.isNotEmpty)
                       Text(
                         userData.profession,
-                        style: TextStyle(fontSize: 18, color: textColorSecondary),
+                        style: const TextStyle(fontSize: 18, color: textColorSecondary),
                       ),
                     const SizedBox(height: 32),
 
@@ -365,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   title: 'Editar Dados Pessoais',
                                   controllers: {
                                     'name': TextEditingController(text: userData.name),
-                                    'phone': TextEditingController(text: userData.phone),
+                                    'telefone': TextEditingController(text: userData.phone),
                                   },
                                   onSave: (data) {
                                     _updateUserData(context, user.uid, data);
@@ -408,9 +408,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     context: context,
                                     title: 'Editar Informações Profissionais',
                                     controllers: {
-                                      'profession': TextEditingController(text: userData.profession),
-                                      'experience': TextEditingController(text: userData.experience),
-                                      'skills': TextEditingController(text: userData.skills),
+                                      'profissão': TextEditingController(text: userData.profession),
+                                      'experiencia': TextEditingController(text: userData.experience),
+                                      'habilidades': TextEditingController(text: userData.skills),
                                     },
                                     onSave: (data) {
                                       _updateUserData(context, user.uid, data);
@@ -453,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   context: context,
                                   title: 'Editar Sobre Mim',
                                   controllers: {
-                                    'aboutMe': TextEditingController(text: userData.aboutMe),
+                                    'fale um pouco sobre você': TextEditingController(text: userData.aboutMe),
                                   },
                                   onSave: (data) {
                                     _updateUserData(context, user.uid, {'aboutMe': data['aboutMe']});

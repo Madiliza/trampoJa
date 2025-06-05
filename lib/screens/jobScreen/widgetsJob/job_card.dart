@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:trampoja_app/models/JobModel.dart';
 import 'package:trampoja_app/models/UserModel.dart';
 import 'package:trampoja_app/models/ApplicationModel.dart';
-import 'package:trampoja_app/screens/jobScreen/dialogs/applicant_list_dialog.dart'; // Caminho corrigido para o diálogo de candidatos
+import 'package:trampoja_app/screens/jobScreen/dialogs/applicant_list_dialog.dart';
 import 'package:trampoja_app/utils/app_colors.dart';
 import 'package:trampoja_app/services/job_service.dart';
 
@@ -31,20 +31,41 @@ class _JobCardState extends State<JobCard> {
   final JobService _jobService = JobService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Estado local para controlar o carregamento do botão de candidatar
+  bool _isApplying = false;
+
   /// Função para aplicar para vaga (agora usa o JobService)
   void _applyForJob() async {
+    // Define o estado para mostrar o indicador de carregamento
+    setState(() {
+      _isApplying = true;
+    });
+
     try {
       await _jobService.applyForJob(widget.job.id!, widget.currentUser.uid);
-      if (!mounted) return;
+      if (!mounted) return; // Verifica se o widget ainda está montado
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Candidatura enviada com sucesso! Aguardando aprovação do contratante.')),
       );
+
+      // O FutureBuilder de `myApplicationSnapshot` irá se reconstruir automaticamente
+      // porque os dados no Firestore foram alterados.
+      // O setState final é para resetar o estado do botão.
+
     } catch (e) {
       print('Erro ao aplicar para vaga: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao aplicar para vaga: $e')),
       );
+    } finally {
+      // Garante que o estado de carregamento seja desativado, independente de sucesso ou erro
+      if (mounted) {
+        setState(() {
+          _isApplying = false;
+        });
+      }
     }
   }
 
@@ -107,7 +128,7 @@ class _JobCardState extends State<JobCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Lógica para Contratante
+                // --- Lógica para Contratante ---
                 if (isContratante) ...[
                   if (widget.job.accepted && widget.job.acceptedByUserId != null)
                     FutureBuilder<DocumentSnapshot>(
@@ -198,7 +219,7 @@ class _JobCardState extends State<JobCard> {
                       },
                     ),
                 ],
-                // Lógica para Prestador
+                // --- Lógica para Prestador ---
                 if (isPrestador) ...[
                   FutureBuilder<QuerySnapshot>(
                     future: _firestore.collection('jobs').doc(widget.job.id!).collection('applications')
@@ -286,9 +307,20 @@ class _JobCardState extends State<JobCard> {
                       if (!widget.job.accepted) {
                         return Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _applyForJob,
-                            icon: const Icon(Icons.send, color: branco),
-                            label: const Text('Candidatar-se', style: TextStyle(color: branco)),
+                            onPressed: _isApplying ? null : _applyForJob, // Desabilita o botão durante o carregamento
+                            icon: _isApplying
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: branco,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.send, color: branco),
+                            label: _isApplying
+                                ? const Text('Candidatando...', style: TextStyle(color: branco))
+                                : const Text('Candidatar-se', style: TextStyle(color: branco)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: laranjaVivo,
                               shape: RoundedRectangleBorder(
@@ -299,7 +331,7 @@ class _JobCardState extends State<JobCard> {
                           ),
                         );
                       }
-                      // Se a vaga já foi aceita por outro, não mostra botão
+                      // Se a vaga já foi aceita por outro, não mostra botão para prestadores
                       return Container();
                     },
                   ),

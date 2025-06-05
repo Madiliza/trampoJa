@@ -1,5 +1,6 @@
 // lib/screens/jobScreen/dialogs/create_job_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:trampoja_app/services/job_service.dart';
 import 'package:trampoja_app/utils/app_colors.dart'; // Importe suas cores
 
@@ -32,7 +33,9 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
       try {
         double? jobValue;
         if (_valueController.text.isNotEmpty) {
-          jobValue = double.tryParse(_valueController.text.replaceAll(',', '.'));
+          jobValue = double.tryParse(
+            _valueController.text.replaceAll(',', '.'),
+          );
         }
 
         await _jobService.addJob(
@@ -49,9 +52,9 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
       } catch (e) {
         print('Erro ao criar vaga: $e');
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar vaga: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao criar vaga: $e')));
       }
     }
   }
@@ -60,9 +63,7 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: branco,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       title: const Text(
         'Criar Nova Vaga',
         style: TextStyle(color: cinzaEscuro, fontWeight: FontWeight.bold),
@@ -119,6 +120,10 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
               TextFormField(
                 controller: _valueController,
                 keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter
+                      .digitsOnly, // This line is the key
+                ],
                 decoration: InputDecoration(
                   labelText: 'Valor (Opcional)',
                   hintText: 'Ex: 150.00',

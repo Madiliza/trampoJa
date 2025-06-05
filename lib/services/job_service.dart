@@ -13,7 +13,6 @@ class JobService {
     double? value,
     required String createdByUserId,
   }) async {
-    // Gera um ID antes de adicionar para usá-lo no documento
     final String jobId = _firestore.collection('jobs').doc().id;
     final newJob = Job(
       id: jobId,
@@ -35,12 +34,12 @@ class JobService {
     final applications = await _firestore.collection('jobs').doc(jobId).collection('applications').get();
     for (var doc in applications.docs) {
       final app = Application.fromFirestore(doc);
-      // Se a aplicação foi aceita, remover o jobId do jobsCompleted do prestador
-      if (app.status == 'accepted') {
-        await _firestore.collection('users').doc(app.applicantId).update({
-          'jobsCompleted': FieldValue.arrayRemove([jobId]),
-        });
-      }
+      // **REMOVA ESTA LINHA OU CRIE UMA CLOUD FUNCTION PARA ELA SE FOR NECESSÁRIO**
+      // if (app.status == 'accepted') {
+      //   await _firestore.collection('users').doc(app.applicantId).update({
+      //     'jobsCompleted': FieldValue.arrayRemove([jobId]),
+      //   });
+      // }
       await doc.reference.delete(); // Deleta o documento da aplicação
     }
     // 2. Finalmente, exclui a vaga em si
@@ -49,7 +48,6 @@ class JobService {
 
   /// Função para o prestador aplicar para uma vaga.
   Future<void> applyForJob(String jobId, String applicantId) async {
-    // Verifica se o usuário já se candidatou a esta vaga
     final existingApplication = await _firestore
         .collection('jobs')
         .doc(jobId)
@@ -85,10 +83,11 @@ class JobService {
       'acceptedByUserId': acceptedByUserId,
     });
 
-    // 3. Adiciona a vaga à lista de trabalhos concluídos do prestador
-    await _firestore.collection('users').doc(acceptedByUserId).update({
-      'jobsCompleted': FieldValue.arrayUnion([jobId]),
-    });
+    // 3. **REMOVA A LINHA PROBLEMÁTICA DAQUI!**
+    //    Esta operação será tratada pela Cloud Function.
+    //    await _firestore.collection('users').doc(acceptedByUserId).update({
+    //      'jobsCompleted': FieldValue.arrayUnion([jobId]),
+    //    });
 
     // 4. Recusa todas as outras candidaturas pendentes para esta vaga
     final otherApplications = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'pending').get();
@@ -106,17 +105,16 @@ class JobService {
       'status': 'declined',
     });
 
-    // 2. Remove o jobId da lista de jobsCompleted do prestador (se estiver lá)
-    await _firestore.collection('users').doc(declinedByUserId).update({
-      'jobsCompleted': FieldValue.arrayRemove([jobId]),
-    });
+    // 2. **REMOVA A LINHA PROBLEMÁTICA DAQUI!**
+    //    Esta operação será tratada pela Cloud Function.
+    //    await _firestore.collection('users').doc(declinedByUserId).update({
+    //      'jobsCompleted': FieldValue.arrayRemove([jobId]),
+    //    });
 
     // 3. Verifica se a vaga precisa ser "desatribuída" (se não houver mais aplicações aceitas ou pendentes)
     final remainingPendingApplications = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'pending').get();
     final acceptedApplication = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'accepted').get();
 
-    // Se não houver mais candidaturas pendentes e nenhuma candidatura aceita,
-    // a vaga volta para o estado original (não aceita, não recusada, sem prestador atribuído).
     if (remainingPendingApplications.docs.isEmpty && acceptedApplication.docs.isEmpty) {
       await _firestore.collection('jobs').doc(jobId).update({
         'accepted': false,
