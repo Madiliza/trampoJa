@@ -141,20 +141,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               if (!docSnapshot.hasData || !docSnapshot.data!.exists) {
                 print('Dados do usuário não encontrados para UID: ${user.uid}');
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.warning_amber, size: 80, color: Colors.amber),
-                      SizedBox(height: 16),
-                      Text(
+                      const Icon(Icons.warning_amber, size: 80, color: Colors.amber),
+                      const SizedBox(height: 16),
+                      const Text(
                         'Seu perfil ainda não foi criado.',
                         style: TextStyle(fontSize: 18, color: Colors.grey),
                       ),
-                      SizedBox(height: 8),
-                      Text(
+                      const SizedBox(height: 8),
+                      const Text(
                         'Por favor, complete seu cadastro.',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 24), // Added spacing
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+                        },
+                        icon: const Icon(Icons.logout, color: Colors.white),
+                        label: const Text('Sair', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                       ),
                     ],
                   ),

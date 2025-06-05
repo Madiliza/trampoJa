@@ -1,33 +1,32 @@
-// JobModel.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Modelo de dados para representar uma vaga de emprego.
+/// Modelo de dados para representar uma vaga de emprego na plataforma.
 class Job {
-  String? id; // ID do documento Firestore (opcional, será preenchido pelo Firestore)
-  String title; // Título da vaga
-  String description; // Descrição detalhada da vaga
-  double? value; // Novo campo para o valor da vaga, opcional
-  bool accepted; // Indica se a vaga foi aceita pelo usuário
-  bool declined; // Indica se a vaga foi recusada pelo usuário
-  String? createdByUserId; // ID do usuário que criou a vaga
-  String? acceptedByUserId; // ID do usuário que aceitou a vaga
-  String? appliedByUserId; // ID do usuário que se candidatou à vaga 
-  bool isPending;
+  String? id; // O ID único do documento no Firestore. Pode ser nulo antes de salvar.
+  String title; // O título da vaga.
+  String description; // A descrição detalhada do trabalho a ser realizado.
+  double? value; // O valor monetário oferecido pela vaga (opcional).
 
+  // Campos de status e relacionamento da vaga:
+  bool accepted; // Indica se a vaga foi aceita por um prestador de serviço.
+  bool declined; // Indica se a vaga foi recusada (pelo contratante).
+  String? createdByUserId; // O ID do usuário (contratante) que criou esta vaga.
+  String? acceptedByUserId; // O ID do usuário (prestador) que aceitou a vaga (quando accepted é true).
+
+  /// Construtor principal para criar uma instância de Job.
   Job({
     this.id,
     required this.title,
     required this.description,
     this.value,
-    this.accepted = false,
-    this.declined = false,
-    this.createdByUserId, // Adicionar ao construtor
-    this.acceptedByUserId, // Adicionar ao construtor
-    this.appliedByUserId, // Adicionar ao construtor
-    this.isPending = false, // Adicionar ao construtor
+    this.accepted = false, // Padrão: vaga não aceita.
+    this.declined = false, // Padrão: vaga não recusada.
+    this.createdByUserId,
+    this.acceptedByUserId,
   });
 
-  /// Construtor de fábrica para criar um objeto Job a partir de um documento Firestore.
+  /// Construtor de fábrica para criar um objeto [Job] a partir de um [DocumentSnapshot] do Firestore.
+  /// Isso é usado ao ler dados do banco de dados.
   factory Job.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Job(
@@ -37,14 +36,13 @@ class Job {
       value: (data['value'] as num?)?.toDouble(),
       accepted: data['accepted'] ?? false,
       declined: data['declined'] ?? false,
-      createdByUserId: data['createdByUserId'], // Obter do Firestore
-      acceptedByUserId: data['acceptedByUserId'], // Obter do Firestore
-      appliedByUserId: data['appliedByUserId'], // Obter do Firestore
-      isPending: data['isPending'] ?? false, // Obter do Firestore
+      createdByUserId: data['createdByUserId'],
+      acceptedByUserId: data['acceptedByUserId'],
     );
   }
 
-  /// Converte o objeto Job em um mapa para salvar no Firestore.
+  /// Converte o objeto [Job] em um mapa de chave-valor para ser salvo no Firestore.
+  /// Isso é usado ao escrever dados no banco de dados.
   Map<String, dynamic> toFirestore() {
     return {
       'title': title,
@@ -52,10 +50,8 @@ class Job {
       'value': value,
       'accepted': accepted,
       'declined': declined,
-      'createdByUserId': createdByUserId, // Salvar no Firestore
-      'acceptedByUserId': acceptedByUserId, // Salvar no Firestore
-      'appliedByUserId': appliedByUserId, // Salvar no Firestore
-      'isPending': isPending, // Salvar no Firestore
+      'createdByUserId': createdByUserId,
+      'acceptedByUserId': acceptedByUserId,
     };
   }
 }
