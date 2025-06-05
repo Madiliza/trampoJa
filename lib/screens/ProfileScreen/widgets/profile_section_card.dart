@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:trampoja_app/utils/app_colors.dart'; // Importe as cores
+import 'package:trampoja_app/utils/app_colors.dart';
 
 class ProfileSectionCard extends StatelessWidget {
   final String title;
@@ -17,27 +17,33 @@ class ProfileSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16), // Cantos mais arredondados
+      ),
+      elevation: 4, // Sombra um pouco mais pronunciada, mas suave
+      shadowColor: Colors.black.withOpacity(0.1), // Cor da sombra mais sutil
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20), // Mais padding interno
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, color: laranjaVivo), // Usando a cor definida
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Icon(icon, color: primaryColor, size: 28), // Ícone maior e cor primária
+                const SizedBox(width: 12), // Mais espaço
+                Expanded( // Garante que o texto não exceda o limite
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20, // Título maior
+                      fontWeight: FontWeight.bold,
+                      color: textColorPrimary, // Cor de texto principal
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const Divider(height: 28, thickness: 1, color: borderColor), // Separador sutil
             content,
           ],
         ),

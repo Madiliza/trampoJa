@@ -49,16 +49,16 @@ class UserModel {
       uid: doc.id, // uid vem do doc.id agora
       name: data['name'] as String? ?? '', // Explicitamente cast como String? para segurança
       email: data['email'] as String? ?? '',
-      phone: data['phone'] as String? ?? '',
+      phone: data['telefone'] as String? ?? '',
       userType: data['userType'] as String? ?? 'prestador', // Define um valor padrão, ou trate a lógica de cadastro
-      profession: data['profession'] as String? ?? '',
-      experience: data['experience'] as String? ?? '',
-      skills: data['skills'] as String? ?? '',
-      aboutMe: data['aboutMe'] as String? ?? '',
+      profession: data['profissão'] as String? ?? '',
+      experience: data['experiencias'] as String? ?? '',
+      skills: data['habilidades'] as String? ?? '',
+      aboutMe: data['sobre mim'] as String? ?? '',
       photoUrl: data['photoUrl'] as String? ?? '',
       // Tratamento mais robusto para listas
-      jobsCompleted: (data['jobsCompleted'] is Iterable) ? List<String>.from(data['jobsCompleted']) : [],
-      jobsNotAttended: (data['jobsNotAttended'] is Iterable) ? List<String>.from(data['jobsNotAttended']) : [],
+      jobsCompleted: (data['trabalhos completos'] is Iterable) ? List<String>.from(data['trabalhos completos']) : [],
+      jobsNotAttended: (data['trabalhos não atendidos'] is Iterable) ? List<String>.from(data['trabalhos não atendidos']) : [],
       feedbacks: (data['feedbacks'] is Iterable) ? List<Map<String, dynamic>>.from(data['feedbacks']) : [],
     );
   }
@@ -67,15 +67,15 @@ class UserModel {
     return {
       'name': name,
       'email': email,
-      'phone': phone,
+      'telefone': phone,
       'userType': userType, // Adicionar ao toMap
-      'profession': profession,
-      'experience': experience,
-      'skills': skills,
-      'aboutMe': aboutMe,
+      'profissão': profession,
+      'experiencia': experience,
+      'habilidades': skills,
+      'sobre mim': aboutMe,
       'photoUrl': photoUrl,
-      'jobsCompleted': jobsCompleted,
-      'jobsNotAttended': jobsNotAttended,
+      'Trabalhos completos': jobsCompleted,
+      'empregos não atendidos': jobsNotAttended,
       'feedbacks': feedbacks,
     };
   }

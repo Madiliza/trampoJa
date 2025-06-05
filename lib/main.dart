@@ -25,7 +25,6 @@ Future<void> main() async {
     url: dotenv.env['SUPABASE_URL']!, 
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!, 
     debug: true, // Mantenha como true para desenvolvimento
-    // authFlowType: AuthFlowType.pkce, // Mantenha se quiser, caso contrário pode remover
   );
 
   runApp(const App());

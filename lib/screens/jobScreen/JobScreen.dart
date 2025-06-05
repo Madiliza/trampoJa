@@ -1,12 +1,14 @@
+// lib/screens/jobScreen/job_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:trampoja_app/models/JobModel.dart';
 import 'package:trampoja_app/models/UserModel.dart';
-import 'package:trampoja_app/screens/JobScreen/widgetsJob/job_card.dart';
+import 'package:trampoja_app/screens/jobScreen/dialogs/applied_jobs_dialog.dart';
 import 'package:trampoja_app/screens/jobScreen/dialogs/create_job_dialog.dart';
-import 'package:trampoja_app/utils/app_colors.dart'; // Importe as cores
-import 'package:trampoja_app/services/job_service.dart'; // Importe o serviço
+import 'package:trampoja_app/screens/jobScreen/widgetsJob/job_card.dart';
+import 'package:trampoja_app/services/job_service.dart';
+import 'package:trampoja_app/utils/app_colors.dart';
 
 class JobScreen extends StatefulWidget {
   const JobScreen({super.key});
@@ -18,10 +20,9 @@ class JobScreen extends StatefulWidget {
 class _JobScreenState extends State<JobScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final JobService _jobService = JobService(); // Instância do serviço
+  final JobService _jobService = JobService();
 
   /// Exclui uma vaga do Firestore e suas candidaturas associadas.
-  /// Este método é passado como callback para JobCard.
   void _handleDeleteJob(String jobId) async {
     try {
       await _jobService.deleteJob(jobId);
@@ -38,20 +39,22 @@ class _JobScreenState extends State<JobScreen> {
     }
   }
 
-  // O _showApplicantsListDialog foi movido para dentro do JobCard,
-  // então não precisamos dele aqui na JobScreen.
-  // Criamos apenas um placeholder para o onShowApplicants do JobCard.
-  void _handleShowApplicants(String jobId) {
-    // A lógica de exibição do diálogo está dentro do JobCard agora.
-    // Este callback pode ser vazio ou usado para algo mais se necessário.
-  }
-
   /// Exibe um diálogo para o usuário criar uma nova vaga.
   void _showCreateJobDialog(String userId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return CreateJobDialog(userId: userId); // Usa o novo widget de diálogo
+        return CreateJobDialog(userId: userId);
+      },
+    );
+  }
+
+  /// Exibe o diálogo com as vagas para as quais o prestador aplicou.
+  void _showAppliedJobsDialog(String userId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AppliedJobsDialog(currentUserId: userId);
       },
     );
   }
@@ -68,6 +71,42 @@ class _JobScreenState extends State<JobScreen> {
         backgroundColor: laranjaVivo,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          StreamBuilder<User?>(
+            stream: _auth.authStateChanges(),
+            builder: (context, authSnapshot) {
+              if (authSnapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink(); // Widget vazio enquanto carrega
+              }
+              final currentUser = authSnapshot.data;
+              if (currentUser == null) {
+                return const SizedBox.shrink();
+              }
+              return FutureBuilder<DocumentSnapshot>(
+                future: _firestore.collection('users').doc(currentUser.uid).get(),
+                builder: (context, userDocSnapshot) {
+                  if (userDocSnapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox.shrink();
+                  }
+                  if (userDocSnapshot.hasError || !userDocSnapshot.hasData || !userDocSnapshot.data!.exists) {
+                    return const SizedBox.shrink();
+                  }
+                  final userData = UserModel.fromDocument(userDocSnapshot.data!);
+                  final isPrestador = userData.userType == 'prestador';
+
+                  if (isPrestador) {
+                    return IconButton(
+                      icon: const Icon(Icons.description, color: branco), // Ícone para "Minhas Candidaturas"
+                      onPressed: () => _showAppliedJobsDialog(currentUser.uid),
+                      tooltip: 'Minhas Candidaturas',
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<User?>(
         stream: _auth.authStateChanges(),
@@ -100,7 +139,6 @@ class _JobScreenState extends State<JobScreen> {
 
               final userData = UserModel.fromDocument(userDocSnapshot.data!);
               final isContratante = userData.userType == 'contratante';
-              final isPrestador = userData.userType == 'prestador';
 
               Stream<QuerySnapshot> jobStream;
               if (isContratante) {
@@ -109,8 +147,8 @@ class _JobScreenState extends State<JobScreen> {
                     .snapshots();
               } else {
                 jobStream = _firestore.collection('jobs')
-                    .where('accepted', isEqualTo: false)
-                    .where('createdByUserId', isNotEqualTo: currentUser.uid)
+                    .where('accepted', isEqualTo: false) // Vagas não aceitas
+                    .where('createdByUserId', isNotEqualTo: currentUser.uid) // Que não foram criadas por ele
                     .snapshots();
               }
 
@@ -155,8 +193,7 @@ class _JobScreenState extends State<JobScreen> {
                         job: job,
                         currentUserData: userData,
                         currentUser: currentUser,
-                        onDeleteJob: _handleDeleteJob, // Passa o callback
-                        onShowApplicants: _handleShowApplicants, // Passa o callback
+                        onDeleteJob: _handleDeleteJob,
                       );
                     },
                   );

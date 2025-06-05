@@ -1,6 +1,7 @@
+// lib/screens/jobScreen/dialogs/create_job_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:trampoja_app/services/job_service.dart';
-import 'package:trampoja_app/utils/app_colors.dart';
+import 'package:trampoja_app/utils/app_colors.dart'; // Importe suas cores
 
 class CreateJobDialog extends StatefulWidget {
   final String userId;
@@ -12,16 +13,28 @@ class CreateJobDialog extends StatefulWidget {
 }
 
 class _CreateJobDialogState extends State<CreateJobDialog> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _valueController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _valueController = TextEditingController();
   final JobService _jobService = JobService();
 
-  void _submitJob() async {
-    if (_titleController.text.isNotEmpty && _descriptionController.text.isNotEmpty) {
-      final double? jobValue = double.tryParse(_valueController.text.replaceAll(',', '.'));
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _valueController.dispose();
+    super.dispose();
+  }
 
+  void _submitJob() async {
+    if (_formKey.currentState!.validate()) {
       try {
+        double? jobValue;
+        if (_valueController.text.isNotEmpty) {
+          jobValue = double.tryParse(_valueController.text.replaceAll(',', '.'));
+        }
+
         await _jobService.addJob(
           title: _titleController.text,
           description: _descriptionController.text,
@@ -29,25 +42,17 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
           createdByUserId: widget.userId,
         );
         if (!mounted) return;
-        _titleController.clear();
-        _descriptionController.clear();
-        _valueController.clear();
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // Fecha o diálogo
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vaga criada com sucesso!')),
         );
       } catch (e) {
-        print('Erro ao adicionar vaga: $e');
+        print('Erro ao criar vaga: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao criar vaga: $e')),
         );
       }
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, preencha o título e a descrição da vaga.')),
-      );
     }
   }
 
@@ -62,82 +67,78 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
         'Criar Nova Vaga',
         style: TextStyle(color: cinzaEscuro, fontWeight: FontWeight.bold),
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                labelText: 'Título da Vaga',
-                labelStyle: const TextStyle(color: cinzaEscuro),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: laranjaSuave),
-                  borderRadius: BorderRadius.circular(10),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  labelText: 'Título da Vaga',
+                  labelStyle: const TextStyle(color: cinzaEscuro),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: laranjaVivo),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: laranjaVivo, width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: cinzaClaro.withOpacity(0.5),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor, insira um título.';
+                  }
+                  return null;
+                },
               ),
-              cursorColor: laranjaVivo,
-              style: const TextStyle(color: cinzaEscuro),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _descriptionController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Descrição da Vaga',
-                labelStyle: const TextStyle(color: cinzaEscuro),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: laranjaSuave),
-                  borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Descrição da Vaga',
+                  labelStyle: const TextStyle(color: cinzaEscuro),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: laranjaVivo),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: laranjaVivo, width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: cinzaClaro.withOpacity(0.5),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor, insira uma descrição.';
+                  }
+                  return null;
+                },
               ),
-              cursorColor: laranjaVivo,
-              style: const TextStyle(color: cinzaEscuro),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _valueController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Valor (R\$)',
-                labelStyle: const TextStyle(color: cinzaEscuro),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: laranjaSuave),
-                  borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _valueController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Valor (Opcional)',
+                  hintText: 'Ex: 150.00',
+                  labelStyle: const TextStyle(color: cinzaEscuro),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: laranjaVivo),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: laranjaVivo, width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: cinzaClaro.withOpacity(0.5),
               ),
-              cursorColor: laranjaVivo,
-              style: const TextStyle(color: cinzaEscuro),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            _titleController.clear();
-            _descriptionController.clear();
-            _valueController.clear();
-          },
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar', style: TextStyle(color: cinzaEscuro)),
         ),
         ElevatedButton(
@@ -147,12 +148,8 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),
-          child: const Text(
-            'Criar Vaga',
-            style: TextStyle(color: branco, fontWeight: FontWeight.bold),
-          ),
+          child: const Text('Criar Vaga', style: TextStyle(color: branco)),
         ),
       ],
     );

@@ -1,13 +1,11 @@
-// lib/Screens/jobScreen/dialogs/applied_jobs_dialog.dart
+// lib/screens/jobScreen/dialogs/applicant_list_dialog.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Keep this if used for current user
-import 'package:trampoja_app/models/ApplicationModel.dart'; // Correct path
-import 'package:trampoja_app/models/JobModel.dart'; // Correct path
-import 'package:trampoja_app/models/UserModel.dart'; // Correct path
+import 'package:trampoja_app/models/ApplicationModel.dart';
+import 'package:trampoja_app/models/UserModel.dart';
 import 'package:trampoja_app/services/job_service.dart';
-import 'package:trampoja_app/utils/app_colors.dart'; // Correct path
-import 'package:trampoja_app/screens/ProfileScreen/ViewProfileScreen.dart';
+import 'package:trampoja_app/utils/app_colors.dart';
+import 'package:trampoja_app/screens/ProfileScreen/ViewProfileScreen.dart'; // Para ver o perfil do candidato
 
 class ApplicantListDialog extends StatelessWidget {
   final String jobId;
@@ -16,7 +14,7 @@ class ApplicantListDialog extends StatelessWidget {
 
   ApplicantListDialog({super.key, required this.jobId});
 
-  // Função para aceitar candidatura (agora usa o JobService)
+  /// Função para aceitar candidatura (agora usa o JobService)
   void _acceptApplication(BuildContext context, String applicationId, String applicantId) async {
     try {
       await _jobService.acceptApplication(jobId, applicationId, applicantId);
@@ -34,7 +32,7 @@ class ApplicantListDialog extends StatelessWidget {
     }
   }
 
-  // Função para recusar candidatura (agora usa o JobService)
+  /// Função para recusar candidatura (agora usa o JobService)
   void _declineApplication(BuildContext context, String applicationId, String applicantId) async {
     try {
       await _jobService.declineApplication(jobId, applicationId, applicantId);
@@ -112,7 +110,7 @@ class ApplicantListDialog extends StatelessWidget {
                               leading: CircleAvatar(
                                 backgroundImage: applicantData.photoUrl.isNotEmpty
                                     ? NetworkImage(applicantData.photoUrl)
-                                    : const NetworkImage('https://via.placeholder.com/150'),
+                                    : const NetworkImage('https://via.placeholder.com/150'), // Imagem padrão
                               ),
                               title: Text(
                                 applicantName,
