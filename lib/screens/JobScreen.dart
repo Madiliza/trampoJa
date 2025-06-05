@@ -1,7 +1,7 @@
 // job_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Importar FirebaseAuth
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:trampoja_app/models/JobModel.dart';
 import 'package:trampoja_app/models/UserModel.dart';
 
@@ -22,7 +22,7 @@ class JobScreen extends StatefulWidget {
 
 class _JobScreenState extends State<JobScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance; // Instância do FirebaseAuth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -38,7 +38,10 @@ class _JobScreenState extends State<JobScreen> {
         title: _titleController.text,
         description: _descriptionController.text,
         value: jobValue,
-        createdByUserId: userId, // Salva o UID do criador da vaga
+        createdByUserId: userId,
+        // Novos campos para rastrear aplicações
+        appliedByUserId: null,
+        isPending: false,
       );
 
       try {
@@ -176,7 +179,7 @@ class _JobScreenState extends State<JobScreen> {
               child: const Text('Cancelar', style: TextStyle(color: cinzaEscuro)),
             ),
             ElevatedButton(
-              onPressed: () => _addJob(userId), // Passa o userId para _addJob
+              onPressed: () => _addJob(userId),
               style: ElevatedButton.styleFrom(
                 backgroundColor: laranjaVivo,
                 shape: RoundedRectangleBorder(
@@ -195,23 +198,157 @@ class _JobScreenState extends State<JobScreen> {
     );
   }
 
-  /// Aceita uma vaga e adiciona o ID da vaga aos 'jobsCompleted' do usuário prestador.
-  void _acceptJob(String jobId, String userId) async {
+  /// Função para o prestador aplicar para uma vaga.
+  void _applyForJob(String jobId, String prestadorId) async {
+    try {
+      await _firestore.collection('jobs').doc(jobId).update({
+        'isPending': true,
+        'appliedByUserId': prestadorId,
+        'accepted': false, // Garante que não está aceita ainda
+        'declined': false, // Garante que não está recusada ainda
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Candidatura enviada com sucesso! Aguardando aprovação do contratante.')),
+      );
+    } catch (e) {
+      print('Erro ao aplicar para vaga: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao aplicar para vaga: $e')),
+      );
+    }
+  }
+
+  /// Exibe um diálogo com o perfil do aplicante para o contratante.
+  void _showApplicantProfileDialog(String applicantUserId, String jobId) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return FutureBuilder<DocumentSnapshot>(
+        future: _firestore.collection('users').doc(applicantUserId).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            // Logar o erro para depuração
+            print('Erro no FutureBuilder ao carregar perfil: ${snapshot.error}');
+            return AlertDialog(
+              title: const Text('Erro ao carregar perfil'),
+              content: Text('Não foi possível carregar o perfil do aplicante: ${snapshot.error}. Por favor, tente novamente.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
+
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            // Logar que o documento não existe
+            print('Documento do usuário não encontrado para o ID: $applicantUserId');
+            return AlertDialog(
+              title: const Text('Perfil Não Encontrado'),
+              content: const Text('Não foi possível encontrar os dados do perfil do aplicante.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
+
+          // Se chegou aqui, o snapshot tem dados.
+          final applicantData = UserModel.fromDocument(snapshot.data!);
+
+          return AlertDialog(
+            backgroundColor: branco,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            title: Text(
+              'Perfil de ${applicantData.name ?? 'Aplicante Desconhecido'}', // Tratamento para nome nulo
+              style: const TextStyle(color: cinzaEscuro, fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Nome: ${applicantData.name ?? 'Não informado'}', style: const TextStyle(color: cinzaEscuro)),
+                  const SizedBox(height: 8),
+                  Text('Email: ${applicantData.email ?? 'Não informado'}', style: const TextStyle(color: cinzaEscuro)),
+                  const SizedBox(height: 8),
+                  Text('Tipo de Usuário: ${applicantData.userType ?? 'Não informado'}', style: const TextStyle(color: cinzaEscuro)),
+                  // Adicione mais campos do perfil do usuário aqui, se houver
+                  // Exemplo:
+                  // Text('Telefone: ${applicantData.phoneNumber ?? 'Não informado'}', style: const TextStyle(color: cinzaEscuro)),
+                  // Text('Habilidades: ${applicantData.skills?.join(', ') ?? 'Não informado'}', style: const TextStyle(color: cinzaEscuro)),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Fechar', style: TextStyle(color: cinzaEscuro)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  _acceptJob(jobId, applicantUserId);
+                  Navigator.of(context).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Aceitar', style: TextStyle(color: branco)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  _declineJob(jobId, applicantUserId);
+                  Navigator.of(context).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Recusar', style: TextStyle(color: branco)),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+  /// Aceita uma vaga pelo contratante.
+  void _acceptJob(String jobId, String acceptedByUserId) async {
     try {
       await _firestore.collection('jobs').doc(jobId).update({
         'accepted': true,
         'declined': false,
-        'acceptedByUserId': userId, // Salva quem aceitou a vaga
+        'isPending': false, // Remove o status de pendência
+        'acceptedByUserId': acceptedByUserId, // Salva o ID do prestador aceito
+        'appliedByUserId': null, // Limpa quem aplicou
       });
 
-      // Adiciona o jobId à lista de trabalhos aceitos do usuário
-      await _firestore.collection('users').doc(userId).update({
+      // Opcional: Adicionar o jobId à lista de trabalhos aceitos do usuário (se ainda não estiver lá)
+      await _firestore.collection('users').doc(acceptedByUserId).update({
         'jobsCompleted': FieldValue.arrayUnion([jobId]),
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vaga aceita com sucesso!')),
+        const SnackBar(content: Text('Vaga aceita e atribuída ao prestador!')),
       );
     } catch (e) {
       print('Erro ao aceitar vaga: $e');
@@ -222,23 +359,25 @@ class _JobScreenState extends State<JobScreen> {
     }
   }
 
-  /// Recusa uma vaga.
-  void _declineJob(String jobId, String userId) async {
+  /// Recusa uma vaga pelo contratante.
+  void _declineJob(String jobId, String declinedByUserId) async {
     try {
       await _firestore.collection('jobs').doc(jobId).update({
         'declined': true,
         'accepted': false,
-        // Você pode adicionar um campo 'declinedByUserId' se quiser rastrear quem recusou.
+        'isPending': false, // Remove o status de pendência
+        'appliedByUserId': null, // Limpa quem aplicou
+        // Se quiser rastrear quem recusou: 'declinedByUserId': declinedByUserId,
       });
 
-      // Remove o jobId da lista de trabalhos aceitos (se já estiver lá e for recusado)
-      await _firestore.collection('users').doc(userId).update({
+      // Opcional: Remover o jobId da lista de trabalhos aceitos (se já estiver lá)
+      await _firestore.collection('users').doc(declinedByUserId).update({
         'jobsCompleted': FieldValue.arrayRemove([jobId]),
       });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vaga recusada com sucesso!')),
+        const SnackBar(content: Text('Candidatura recusada.')),
       );
     } catch (e) {
       print('Erro ao recusar vaga: $e');
@@ -301,8 +440,12 @@ class _JobScreenState extends State<JobScreen> {
                     .where('createdByUserId', isEqualTo: currentUser.uid)
                     .snapshots();
               } else {
-                // Prestador de serviço vê todas as vagas
-                jobStream = _firestore.collection('jobs').snapshots();
+                // Prestador de serviço vê todas as vagas que não estão aceitas ou pendentes (para ele)
+                jobStream = _firestore.collection('jobs')
+                    .where('accepted', isEqualTo: false) // Não aceitas por ninguém
+                    .where('isPending', isEqualTo: false) // Não estão pendentes
+                    .where('appliedByUserId', isNotEqualTo: currentUser.uid) // Não aplicadas por ele mesmo
+                    .snapshots();
               }
 
               return StreamBuilder<QuerySnapshot>(
@@ -343,7 +486,7 @@ class _JobScreenState extends State<JobScreen> {
                     itemBuilder: (context, index) {
                       final job = jobs[index];
                       return Card(
-                        color: pessegoClaro,
+                        color: const Color.fromARGB(255, 235, 235, 235),
                         margin: const EdgeInsets.only(bottom: 16.0),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
@@ -386,25 +529,62 @@ class _JobScreenState extends State<JobScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  if (isContratante)
-                                    ElevatedButton.icon(
-                                      onPressed: () => _deleteJob(job.id!), // Botão de excluir para contratantes
-                                      icon: const Icon(Icons.delete, color: branco),
-                                      label: const Text('Excluir', style: TextStyle(color: branco)),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        shape: RoundedRectangleBorder(
+                                  if (isContratante) ...[
+                                    if (job.isPending == true && job.appliedByUserId != null)
+                                      ElevatedButton.icon(
+                                        onPressed: () => _showApplicantProfileDialog(job.appliedByUserId!, job.id!),
+                                        icon: const Icon(Icons.person, color: branco),
+                                        label: const Text('Ver Candidato', style: TextStyle(color: branco)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    const SizedBox(width: 10),
+                                    if (job.accepted == false && job.isPending == false)
+                                      ElevatedButton.icon(
+                                        onPressed: () => _deleteJob(job.id!),
+                                        icon: const Icon(Icons.delete, color: branco),
+                                        label: const Text('Excluir', style: TextStyle(color: branco)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    if (job.accepted == true)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade100,
                                           borderRadius: BorderRadius.circular(10),
                                         ),
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                                            const SizedBox(width: 5),
+                                            const Text(
+                                              'Vaga Atribuída!',
+                                              style: TextStyle(
+                                                color: Color.fromARGB(255, 33, 114, 36),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  if (isPrestador && !job.accepted && !job.declined)
+                                  ],
+                                  if (isPrestador && !job.accepted && !job.isPending)
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        onPressed: () => _acceptJob(job.id!, currentUser.uid),
-                                        icon: const Icon(Icons.check, color: branco),
-                                        label: const Text('Aceitar', style: TextStyle(color: branco)),
+                                        onPressed: () => _applyForJob(job.id!, currentUser.uid),
+                                        icon: const Icon(Icons.send, color: branco),
+                                        label: const Text('Candidatar-se', style: TextStyle(color: branco)),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: laranjaVivo,
                                           shape: RoundedRectangleBorder(
@@ -414,24 +594,28 @@ class _JobScreenState extends State<JobScreen> {
                                         ),
                                       ),
                                     ),
-                                  if (isPrestador && !job.accepted && !job.declined)
-                                    const SizedBox(width: 10),
-                                  if (isPrestador && !job.accepted && !job.declined)
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: () => _declineJob(job.id!, currentUser.uid),
-                                        icon: const Icon(Icons.close, color: cinzaEscuro),
-                                        label: const Text('Recusar', style: TextStyle(color: cinzaEscuro)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: laranjaSuave,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
+                                  if (isPrestador && job.isPending == true && job.appliedByUserId == currentUser.uid)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.yellow.shade100,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.access_time, color: Colors.yellow.shade700, size: 20),
+                                          const SizedBox(width: 5),
+                                          const Text(
+                                            'Candidatura Pendente',
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                        ),
+                                        ],
                                       ),
                                     ),
-                                  if (isPrestador && job.accepted)
+                                  if (isPrestador && job.accepted && job.acceptedByUserId == currentUser.uid)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       decoration: BoxDecoration(
@@ -442,17 +626,17 @@ class _JobScreenState extends State<JobScreen> {
                                         children: [
                                           Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
                                           const SizedBox(width: 5),
-                                          Text(
+                                          const Text(
                                             'Vaga Aceita!',
                                             style: TextStyle(
-                                              color: Colors.green.shade700,
+                                              color: Color.fromARGB(255, 33, 114, 36),
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  if (isPrestador && job.declined)
+                                  if (isPrestador && job.declined && job.appliedByUserId == currentUser.uid)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       decoration: BoxDecoration(
@@ -463,10 +647,10 @@ class _JobScreenState extends State<JobScreen> {
                                         children: [
                                           Icon(Icons.cancel, color: Colors.red.shade700, size: 20),
                                           const SizedBox(width: 5),
-                                          Text(
-                                            'Vaga Recusada!',
+                                          const Text(
+                                            'Candidatura Recusada!',
                                             style: TextStyle(
-                                              color: Colors.red.shade700,
+                                              color: Colors.red,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -491,14 +675,13 @@ class _JobScreenState extends State<JobScreen> {
         stream: _auth.authStateChanges(),
         builder: (context, authSnapshot) {
           if (authSnapshot.connectionState == ConnectionState.waiting) {
-            return Container(); // Ou um CircularProgressIndicator pequeno
+            return Container();
           }
           final currentUser = authSnapshot.data;
           if (currentUser == null) {
             return Container();
           }
 
-          // Busca o tipo de usuário para decidir se exibe o FAB
           return FutureBuilder<DocumentSnapshot>(
             future: _firestore.collection('users').doc(currentUser.uid).get(),
             builder: (context, userDocSnapshot) {
@@ -514,12 +697,12 @@ class _JobScreenState extends State<JobScreen> {
 
               if (isContratante) {
                 return FloatingActionButton(
-                  onPressed: () => _showCreateJobDialog(currentUser.uid), // Passa o UID do usuário
+                  onPressed: () => _showCreateJobDialog(currentUser.uid),
                   backgroundColor: laranjaVivo,
                   child: const Icon(Icons.add, color: branco),
                 );
               } else {
-                return Container(); // Não exibe o botão para prestadores
+                return Container();
               }
             },
           );

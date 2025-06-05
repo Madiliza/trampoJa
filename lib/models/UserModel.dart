@@ -33,21 +33,33 @@ class UserModel {
   });
 
   factory UserModel.fromDocument(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    // É crucial garantir que data seja Map<String, dynamic> e não null.
+    // O '.data()' pode retornar null se o documento não existir,
+    // mas o 'snapshot.data!.exists' no widget já deveria pegar isso.
+    // Mesmo assim, um cast seguro é bom.
+    final data = doc.data() as Map<String, dynamic>?;
+
+    // Se por alguma razão data for null aqui (o que não deveria acontecer com a verificação anterior),
+    // ou para documentos vazios, podemos lançar um erro ou retornar um modelo padrão.
+    if (data == null) {
+      throw StateError('Missing data for UserModel from document ${doc.id}');
+    }
+
     return UserModel(
       uid: doc.id, // uid vem do doc.id agora
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      phone: data['phone'] ?? '',
-      userType: data['userType'] ?? 'prestador', // Define um valor padrão, ou trate a lógica de cadastro
-      profession: data['profession'] ?? '',
-      experience: data['experience'] ?? '',
-      skills: data['skills'] ?? '',
-      aboutMe: data['aboutMe'] ?? '',
-      photoUrl: data['photoUrl'] ?? '',
-      jobsCompleted: List<String>.from(data['jobsCompleted'] ?? []),
-      jobsNotAttended: List<String>.from(data['jobsNotAttended'] ?? []),
-      feedbacks: List<Map<String, dynamic>>.from(data['feedbacks'] ?? []),
+      name: data['name'] as String? ?? '', // Explicitamente cast como String? para segurança
+      email: data['email'] as String? ?? '',
+      phone: data['phone'] as String? ?? '',
+      userType: data['userType'] as String? ?? 'prestador', // Define um valor padrão, ou trate a lógica de cadastro
+      profession: data['profession'] as String? ?? '',
+      experience: data['experience'] as String? ?? '',
+      skills: data['skills'] as String? ?? '',
+      aboutMe: data['aboutMe'] as String? ?? '',
+      photoUrl: data['photoUrl'] as String? ?? '',
+      // Tratamento mais robusto para listas
+      jobsCompleted: (data['jobsCompleted'] is Iterable) ? List<String>.from(data['jobsCompleted']) : [],
+      jobsNotAttended: (data['jobsNotAttended'] is Iterable) ? List<String>.from(data['jobsNotAttended']) : [],
+      feedbacks: (data['feedbacks'] is Iterable) ? List<Map<String, dynamic>>.from(data['feedbacks']) : [],
     );
   }
 

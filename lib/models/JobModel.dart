@@ -11,6 +11,8 @@ class Job {
   bool declined; // Indica se a vaga foi recusada pelo usuário
   String? createdByUserId; // ID do usuário que criou a vaga
   String? acceptedByUserId; // ID do usuário que aceitou a vaga
+  String? appliedByUserId; // ID do usuário que se candidatou à vaga 
+  bool isPending;
 
   Job({
     this.id,
@@ -21,6 +23,8 @@ class Job {
     this.declined = false,
     this.createdByUserId, // Adicionar ao construtor
     this.acceptedByUserId, // Adicionar ao construtor
+    this.appliedByUserId, // Adicionar ao construtor
+    this.isPending = false, // Adicionar ao construtor
   });
 
   /// Construtor de fábrica para criar um objeto Job a partir de um documento Firestore.
@@ -35,6 +39,8 @@ class Job {
       declined: data['declined'] ?? false,
       createdByUserId: data['createdByUserId'], // Obter do Firestore
       acceptedByUserId: data['acceptedByUserId'], // Obter do Firestore
+      appliedByUserId: data['appliedByUserId'], // Obter do Firestore
+      isPending: data['isPending'] ?? false, // Obter do Firestore
     );
   }
 
@@ -48,6 +54,8 @@ class Job {
       'declined': declined,
       'createdByUserId': createdByUserId, // Salvar no Firestore
       'acceptedByUserId': acceptedByUserId, // Salvar no Firestore
+      'appliedByUserId': appliedByUserId, // Salvar no Firestore
+      'isPending': isPending, // Salvar no Firestore
     };
   }
 }

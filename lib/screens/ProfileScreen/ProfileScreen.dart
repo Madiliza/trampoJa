@@ -162,7 +162,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
 
               final userData = UserModel.fromDocument(docSnapshot.data!);
-              final isContratante = userData.userType == 'contratante';
               final isPrestador = userData.userType == 'prestador';
 
               return SingleChildScrollView(
