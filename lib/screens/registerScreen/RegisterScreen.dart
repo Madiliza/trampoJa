@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import 'homepage.dart'; // Assuming Homepage is the next screen
+import '../../services/auth_service.dart';
+import 'package:trampoja_app/screens/Homepage/Homepage.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

@@ -1,0 +1,104 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:trampoja_app/models/JobModel.dart';
+import 'package:trampoja_app/models/ApplicationModel.dart';
+
+class JobService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Adiciona uma nova vaga à coleção 'jobs' no Firestore.
+  Future<void> addJob({
+    required String title,
+    required String description,
+    double? value,
+    required String createdByUserId,
+  }) async {
+    final newJob = Job(
+      id: _firestore.collection('jobs').doc().id, // Gera um ID antes de adicionar
+      title: title,
+      description: description,
+      value: value,
+      createdByUserId: createdByUserId,
+      accepted: false,
+      declined: false,
+      acceptedByUserId: null,
+    );
+
+    await _firestore.collection('jobs').doc(newJob.id).set(newJob.toFirestore());
+  }
+
+  /// Exclui uma vaga do Firestore e suas candidaturas associadas.
+  Future<void> deleteJob(String jobId) async {
+    // Deletar todas as candidaturas associadas à vaga
+    final applications = await _firestore.collection('jobs').doc(jobId).collection('applications').get();
+    for (var doc in applications.docs) {
+      final app = Application.fromFirestore(doc);
+      // Se a aplicação foi aceita, remover o jobId do jobsCompleted do prestador
+      if (app.status == 'accepted') {
+        await _firestore.collection('users').doc(app.applicantId).update({
+          'jobsCompleted': FieldValue.arrayRemove([jobId]),
+        });
+      }
+      await doc.reference.delete(); // Deleta o documento da aplicação
+    }
+    // Finalmente, exclui a vaga em si
+    await _firestore.collection('jobs').doc(jobId).delete();
+  }
+
+  /// Função para o prestador aplicar para uma vaga.
+  Future<void> applyForJob(String jobId, String applicantId) async {
+    final newApplication = Application(
+      jobId: jobId,
+      applicantId: applicantId,
+      status: 'pending',
+      appliedAt: Timestamp.now(),
+    );
+    await _firestore.collection('jobs').doc(jobId).collection('applications').add(newApplication.toFirestore());
+  }
+
+  /// Aceita uma candidatura e atualiza o status da vaga.
+  Future<void> acceptApplication(String jobId, String applicationId, String acceptedByUserId) async {
+    await _firestore.collection('jobs').doc(jobId).collection('applications').doc(applicationId).update({
+      'status': 'accepted',
+    });
+
+    await _firestore.collection('jobs').doc(jobId).update({
+      'accepted': true,
+      'declined': false,
+      'acceptedByUserId': acceptedByUserId,
+    });
+
+    await _firestore.collection('users').doc(acceptedByUserId).update({
+      'jobsCompleted': FieldValue.arrayUnion([jobId]),
+    });
+
+    final otherApplications = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'pending').get();
+    for (var doc in otherApplications.docs) {
+      if (doc.id != applicationId) {
+        await doc.reference.update({'status': 'declined'});
+      }
+    }
+  }
+
+  /// Recusa uma candidatura.
+  Future<void> declineApplication(String jobId, String applicationId, String declinedByUserId) async {
+    await _firestore.collection('jobs').doc(jobId).collection('applications').doc(applicationId).update({
+      'status': 'declined',
+    });
+
+    await _firestore.collection('users').doc(declinedByUserId).update({
+      'jobsCompleted': FieldValue.arrayRemove([jobId]),
+    });
+
+    final remainingPendingApplications = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'pending').get();
+    final acceptedApplication = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'accepted').get();
+
+    if (remainingPendingApplications.docs.isEmpty && acceptedApplication.docs.isEmpty) {
+      await _firestore.collection('jobs').doc(jobId).update({
+        'accepted': false,
+        'declined': false,
+        'acceptedByUserId': null,
+      });
+    }
+  }
+}

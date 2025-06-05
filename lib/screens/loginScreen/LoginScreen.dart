@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart'; // Certifique-se de que este caminho está correto para o seu AuthService atualizado
-import 'RegisterScreen.dart';
+import '../../services/auth_service.dart'; // Certifique-se de que este caminho está correto para o seu AuthService atualizado
+import '../registerScreen/RegisterScreen.dart';
 // Não precisamos importar homepage aqui, pois o AuthWrapper lida com isso.
 
 class LoginScreen extends StatefulWidget {

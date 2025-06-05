@@ -1,13 +1,14 @@
 // main.dart
 import 'package:firebase_auth/firebase_auth.dart' as FBAuth;
 import 'package:flutter/material.dart';
-import 'package:trampoja_app/screens/LoginScreen.dart';
-import 'package:trampoja_app/screens/homepage.dart';
+import 'package:trampoja_app/screens/loginScreen/LoginScreen.dart';
+import 'package:trampoja_app/screens/Homepage/Homepage.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Certifique-se de que está importado
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
