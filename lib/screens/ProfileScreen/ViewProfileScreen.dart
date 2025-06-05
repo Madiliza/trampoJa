@@ -1,7 +1,7 @@
 // view_profile_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:trampoja_app/models/UserModel.dart'; // Certifique-se de que este caminho está correto
+import 'package:trampoja_app/models/UserModel.dart';
 
 class ViewProfileScreen extends StatelessWidget {
   final String userId;
@@ -61,11 +61,17 @@ class ViewProfileScreen extends StatelessWidget {
               children: [
                 // Foto de perfil
                 Center(
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundImage: userData.photoUrl.isNotEmpty
-                        ? NetworkImage(userData.photoUrl)
-                        : const NetworkImage('https://via.placeholder.com/150'),
+                  // A tag do Hero precisa ser única para cada CircleAvatar que pode estar animando.
+                  // Usar o userId garante essa unicidade.
+                  child: Hero(
+                    tag: 'profile_picture_$userId', // Tag única para este perfil
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundImage: userData.photoUrl.isNotEmpty
+                          ? NetworkImage(userData.photoUrl) // Carrega a URL do Supabase
+                          // Placeholder se a foto não estiver disponível
+                          : const NetworkImage('https://via.placeholder.com/150/0000FF/FFFFFF?text=Sem+Foto'), // Placeholder com texto
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -142,7 +148,8 @@ class ViewProfileScreen extends StatelessWidget {
                           const Text('Nenhum trabalho aceito ainda.',
                               style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic))
                         else
-                          ...userData.jobsCompleted.map((jobId) => _buildJobAcceptedItem(jobId)),
+                          // Usar .toList() é uma boa prática para iteradores em widgets
+                          ...userData.jobsCompleted.map((jobId) => _buildJobAcceptedItem(jobId)).toList(),
                       ],
                     ),
                   ),
@@ -215,7 +222,6 @@ class ViewProfileScreen extends StatelessWidget {
     );
   }
 
-  // Novo widget para exibir itens de trabalhos aceitos (apenas para prestadores)
   Widget _buildJobAcceptedItem(String jobId) {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('jobs').doc(jobId).get(),
@@ -224,23 +230,36 @@ class ViewProfileScreen extends StatelessWidget {
           return const LinearProgressIndicator();
         }
         if (snapshot.hasError) {
+          print('Erro ao carregar trabalho $jobId: ${snapshot.error}');
           return Text('Erro ao carregar trabalho: ${snapshot.error}');
         }
         if (!snapshot.hasData || !snapshot.data!.exists) {
+          print('Trabalho $jobId não encontrado no Firestore.');
           return const Text('Trabalho não encontrado.');
         }
 
-        final jobData = snapshot.data!.data() as Map<String, dynamic>;
-        final jobTitle = jobData['title'] ?? 'Título indisponível';
-        final jobValue = (jobData['value'] as num?)?.toStringAsFixed(2).replaceAll('.', ',');
+        final Map<String, dynamic>? jobData = snapshot.data!.data() as Map<String, dynamic>?;
+
+        if (jobData == null) {
+          print('Dados do trabalho $jobId são nulos.');
+          return const Text('Dados do trabalho são nulos.');
+        }
+
+        final String jobTitle = (jobData['title'] as String?) ?? 'Título indisponível';
+        final num? jobValueNum = jobData['value'] as num?;
+        final String jobValue = jobValueNum != null
+            ? 'R\$ ${jobValueNum.toStringAsFixed(2).replaceAll('.', ',')}'
+            : 'Valor indisponível';
 
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(jobTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
-              if (jobValue != null) Text('R\$ $jobValue'),
+              Expanded(
+                child: Text(jobTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              Text(jobValue),
             ],
           ),
         );

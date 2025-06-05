@@ -5,7 +5,7 @@ import 'package:trampoja_app/models/ApplicationModel.dart';
 import 'package:trampoja_app/models/UserModel.dart';
 import 'package:trampoja_app/services/job_service.dart';
 import 'package:trampoja_app/utils/app_colors.dart';
-import 'package:trampoja_app/screens/ProfileScreen/ViewProfileScreen.dart'; // Para ver o perfil do candidato
+import 'package:trampoja_app/screens/ProfileScreen/ViewProfileScreen.dart';
 
 class ApplicantListDialog extends StatelessWidget {
   final String jobId;
@@ -125,7 +125,7 @@ class ApplicantListDialog extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ViewProfileScreen(userId: applicantId),
+                                    builder: (context) => ViewProfileScreen(userId: applicantId), // <-- CORREÇÃO AQUI
                                   ),
                                 );
                               },

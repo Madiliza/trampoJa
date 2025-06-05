@@ -119,14 +119,17 @@ class _CreateJobDialogState extends State<CreateJobDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _valueController,
-                keyboardType: TextInputType.number,
+                // Altera para permitir a vírgula e configurar o teclado numérico
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter
-                      .digitsOnly, // This line is the key
+                  // Permite dígitos e apenas uma vírgula para números decimais
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*,?\d{0,2}$')),
                 ],
                 decoration: InputDecoration(
                   labelText: 'Valor (Opcional)',
-                  hintText: 'Ex: 150.00',
+                  hintText: 'Ex: 150,00', // Ajuste o hintText para usar vírgula
                   labelStyle: const TextStyle(color: cinzaEscuro),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),

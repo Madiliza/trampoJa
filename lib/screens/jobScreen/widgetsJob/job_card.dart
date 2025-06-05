@@ -187,7 +187,7 @@ class _JobCardState extends State<JobCard> {
                         if (pendingApplications > 0) {
                           return Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _showApplicantsDialog, // Chama o novo método que exibe o diálogo
+                              onPressed: _showApplicantsDialog, 
                               icon: const Icon(Icons.group, color: branco),
                               label: Text('Ver Candidatos ($pendingApplications)', style: const TextStyle(color: branco)),
                               style: ElevatedButton.styleFrom(

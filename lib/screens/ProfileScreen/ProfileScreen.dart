@@ -1,3 +1,4 @@
+// profile_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -73,24 +74,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showSettingsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent, // Permite bordas arredondadas e sombra
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
           decoration: const BoxDecoration(
             color: branco,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)), // Cantos arredondados no topo
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black26,
                 blurRadius: 10.0,
                 spreadRadius: 2.0,
-                offset: Offset(0.0, -5.0), // Sombra para cima
+                offset: Offset(0.0, -5.0),
               ),
             ],
           ),
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Ocupa o mínimo de espaço necessário
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Align(
@@ -119,8 +120,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.notifications,
                 text: 'Notificações',
                 onTap: () {
-                  Navigator.pop(context); // Fecha o BottomSheet
-                  // TODO: Implementar navegação para tela de Notificações
+                  Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Navegar para Notificações')),
                   );
@@ -132,7 +132,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 text: 'Privacidade e Segurança',
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Implementar navegação para tela de Privacidade
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Navegar para Privacidade e Segurança')),
                   );
@@ -144,7 +143,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 text: 'Ajuda e Suporte',
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Implementar navegação para tela de Ajuda
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Navegar para Ajuda e Suporte')),
                   );
@@ -154,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 context,
                 icon: Icons.logout,
                 text: 'Sair da Conta',
-                textColor: errorColor, // Cor de destaque para sair
+                textColor: errorColor,
                 onTap: () async {
                   Navigator.pop(context);
                   await FirebaseAuth.instance.signOut();
@@ -178,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10), // Efeito de toque arredondado
+      borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
         child: Row(
@@ -193,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const Spacer(), // Empurra o resto para a direita
+            const Spacer(),
             Icon(Icons.arrow_forward_ios, color: textColor ?? textColorSecondary, size: 16),
           ],
         ),
@@ -217,14 +215,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: primaryColor,
         elevation: 0,
         centerTitle: true,
-        // --- Adiciona o IconButton para configurações na AppBar ---
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: branco, size: 26),
             tooltip: 'Configurações',
-            onPressed: () => _showSettingsMenu(context), // Chama a função do menu
+            onPressed: () => _showSettingsMenu(context),
           ),
-          const SizedBox(width: 8), // Espaçamento extra à direita
+          const SizedBox(width: 8),
         ],
       ),
       body: StreamBuilder<User?>(
@@ -255,6 +252,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'Faça login para ver seu perfil e acessar todas as funcionalidades.',
                       style: TextStyle(fontSize: 16, color: textColorSecondary),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await FirebaseAuth.instance.signOut();
+                      },
+                      icon: const Icon(Icons.logout, color: branco, size: 20),
+                      label: const Text('Sair', style: TextStyle(color: branco, fontSize: 16, fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: errorColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 5,
+                      ),
                     ),
                   ],
                 ),
@@ -329,6 +342,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     ProfileAvatarEditor(
                       photoUrl: userData.photoUrl,
+                      // A UserService.pickAndUploadProfileImage deve lidar com o upload para o Supabase
+                      // e atualizar a photoUrl no Firestore com a URL pública do Supabase.
                       onEditPressed: () =>
                           _userService.pickAndUploadProfileImage(user.uid, context),
                     ),
@@ -365,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   title: 'Editar Dados Pessoais',
                                   controllers: {
                                     'name': TextEditingController(text: userData.name),
-                                    'telefone': TextEditingController(text: userData.phone),
+                                    'phone': TextEditingController(text: userData.phone), // Ajustado para 'phone'
                                   },
                                   onSave: (data) {
                                     _updateUserData(context, user.uid, data);
@@ -408,9 +423,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     context: context,
                                     title: 'Editar Informações Profissionais',
                                     controllers: {
-                                      'profissão': TextEditingController(text: userData.profession),
-                                      'experiencia': TextEditingController(text: userData.experience),
-                                      'habilidades': TextEditingController(text: userData.skills),
+                                      'profession': TextEditingController(text: userData.profession), // Ajustado para 'profession'
+                                      'experience': TextEditingController(text: userData.experience), // Ajustado para 'experience'
+                                      'skills': TextEditingController(text: userData.skills),       // Ajustado para 'skills'
                                     },
                                     onSave: (data) {
                                       _updateUserData(context, user.uid, data);
@@ -453,10 +468,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   context: context,
                                   title: 'Editar Sobre Mim',
                                   controllers: {
-                                    'fale um pouco sobre você': TextEditingController(text: userData.aboutMe),
+                                    'aboutMe': TextEditingController(text: userData.aboutMe), // Ajustado para 'aboutMe'
                                   },
                                   onSave: (data) {
-                                    _updateUserData(context, user.uid, {'aboutMe': data['aboutMe']});
+                                    _updateUserData(context, user.uid, data);
                                   },
                                 );
                               },
@@ -485,9 +500,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     if (isPrestador) const SizedBox(height: 16),
 
-                    // O botão "Sair da Conta" agora pode ser o último elemento, se não for movido para o menu de configurações.
-                    // Se a opção "Sair da Conta" for colocada no BottomSheet de configurações, você pode remover este botão principal.
-                    // Mantenho-o aqui por enquanto, mas ele está também no BottomSheet.
                     ElevatedButton.icon(
                       onPressed: () async {
                         await FirebaseAuth.instance.signOut();
