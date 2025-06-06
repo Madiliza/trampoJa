@@ -46,18 +46,38 @@ class _JobCardState extends State<JobCard> {
       if (!mounted) return; // Verifica se o widget ainda está montado
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Candidatura enviada com sucesso! Aguardando aprovação do contratante.')),
+        const SnackBar(
+          content: Text('Candidatura enviada com sucesso! Aguardando aprovação do contratante.', style: TextStyle(color: branco)),
+          backgroundColor: accentColor,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+        ),
       );
 
-      // O FutureBuilder de `myApplicationSnapshot` irá se reconstruir automaticamente
-      // porque os dados no Firestore foram alterados.
-      // O setState final é para resetar o estado do botão.
-
-    } catch (e) {
-      print('Erro ao aplicar para vaga: $e');
+    } on FirebaseException catch (e) { // Captura erros específicos do Firebase
+      print('Erro Firebase ao aplicar para vaga: ${e.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao aplicar para vaga: $e')),
+        SnackBar(
+          content: Text('Erro ao aplicar para vaga: ${e.message}', style: const TextStyle(color: branco)),
+          backgroundColor: errorColor,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(10),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+        ),
+      );
+    } catch (e) {
+      print('Erro inesperado ao aplicar para vaga: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado ao aplicar para vaga: $e', style: const TextStyle(color: branco)),
+          backgroundColor: errorColor,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(10),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+        ),
       );
     } finally {
       // Garante que o estado de carregamento seja desativado, independente de sucesso ou erro
@@ -85,7 +105,7 @@ class _JobCardState extends State<JobCard> {
     final isPrestador = widget.currentUserData.userType == 'prestador';
 
     return Card(
-      color: const Color.fromARGB(255, 235, 235, 235),
+      color: cardColor, // Usando sua cor de cartão
       margin: const EdgeInsets.only(bottom: 16.0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
@@ -101,7 +121,7 @@ class _JobCardState extends State<JobCard> {
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: cinzaEscuro,
+                color: textColorPrimary, // Usando sua cor de texto primária
               ),
             ),
             const SizedBox(height: 8),
@@ -109,7 +129,7 @@ class _JobCardState extends State<JobCard> {
               widget.job.description,
               style: TextStyle(
                 fontSize: 16,
-                color: cinzaEscuro.withOpacity(0.8),
+                color: textColorSecondary, // Usando sua cor de texto secundária
               ),
             ),
             if (widget.job.value != null)
@@ -120,7 +140,7 @@ class _JobCardState extends State<JobCard> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: laranjaVivo,
+                    color: accentColor, // Usando sua accentColor para o valor
                   ),
                 ),
               ),
@@ -135,10 +155,10 @@ class _JobCardState extends State<JobCard> {
                       future: _firestore.collection('users').doc(widget.job.acceptedByUserId!).get(),
                       builder: (context, acceptedSnapshot) {
                         if (acceptedSnapshot.connectionState == ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
+                          return const CircularProgressIndicator(color: primaryColor);
                         }
                         if (acceptedSnapshot.hasError || !acceptedSnapshot.hasData || !acceptedSnapshot.data!.exists) {
-                          return const Text('Prestador aceito não encontrado');
+                          return const Text('Prestador aceito não encontrado', style: TextStyle(color: errorColor));
                         }
                         final acceptedName = UserModel.fromDocument(acceptedSnapshot.data!).name;
                         return Flexible(
@@ -156,8 +176,8 @@ class _JobCardState extends State<JobCard> {
                                 Flexible(
                                   child: Text(
                                     'Atribuída: $acceptedName',
-                                    style: const TextStyle(
-                                      color: Color.fromARGB(255, 33, 114, 36),
+                                    style: TextStyle(
+                                      color: Colors.green.shade800,
                                       fontWeight: FontWeight.bold,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -176,22 +196,25 @@ class _JobCardState extends State<JobCard> {
                           .snapshots(),
                       builder: (context, applicationsSnapshot) {
                         if (applicationsSnapshot.connectionState == ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
+                          return const CircularProgressIndicator(color: primaryColor);
                         }
                         if (applicationsSnapshot.hasError) {
-                          return Text('Erro: ${applicationsSnapshot.error}');
+                          return Text('Erro: ${applicationsSnapshot.error}', style: const TextStyle(color: errorColor));
                         }
 
-                        final pendingApplications = applicationsSnapshot.data!.docs.length;
+                        // Verificação para `snapshot.data` e `docs` não serem nulos
+                        final pendingApplications = applicationsSnapshot.hasData && applicationsSnapshot.data!.docs.isNotEmpty
+                            ? applicationsSnapshot.data!.docs.length
+                            : 0;
 
                         if (pendingApplications > 0) {
                           return Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _showApplicantsDialog, 
+                              onPressed: _showApplicantsDialog,
                               icon: const Icon(Icons.group, color: branco),
                               label: Text('Ver Candidatos ($pendingApplications)', style: const TextStyle(color: branco)),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
+                                backgroundColor: primaryColor, // Usando sua primaryColor
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -207,7 +230,7 @@ class _JobCardState extends State<JobCard> {
                               icon: const Icon(Icons.delete, color: branco),
                               label: const Text('Excluir', style: TextStyle(color: branco)),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                                backgroundColor: errorColor, // Usando sua errorColor
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -220,91 +243,73 @@ class _JobCardState extends State<JobCard> {
                     ),
                 ],
                 // --- Lógica para Prestador ---
-                if (isPrestador) ...[
+                if (isPrestador && !widget.job.accepted) ...[ // Só mostra para prestador se a vaga não estiver aceita
                   FutureBuilder<QuerySnapshot>(
                     future: _firestore.collection('jobs').doc(widget.job.id!).collection('applications')
                         .where('applicantId', isEqualTo: widget.currentUser.uid)
                         .get(),
                     builder: (context, myApplicationSnapshot) {
                       if (myApplicationSnapshot.connectionState == ConnectionState.waiting) {
-                        return const CircularProgressIndicator();
+                        return const CircularProgressIndicator(color: primaryColor);
+                      }
+                      if (myApplicationSnapshot.hasError) {
+                        return Text('Erro ao carregar sua candidatura: ${myApplicationSnapshot.error}', style: const TextStyle(color: errorColor));
                       }
 
-                      final myApplications = myApplicationSnapshot.data!.docs;
+                      // Verificação para `snapshot.data` e `docs` não serem nulos
+                      final myApplications = myApplicationSnapshot.hasData && myApplicationSnapshot.data!.docs.isNotEmpty
+                          ? myApplicationSnapshot.data!.docs
+                          : [];
                       final hasApplied = myApplications.isNotEmpty;
                       final myApplication = hasApplied ? Application.fromFirestore(myApplications.first) : null;
 
                       if (hasApplied) {
+                        Color statusColor;
+                        String statusText;
+                        IconData statusIcon;
+
                         if (myApplication!.status == 'accepted') {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
-                                const SizedBox(width: 5),
-                                const Text(
-                                  'Sua Candidatura Aceita!',
-                                  style: TextStyle(
-                                    color: Color.fromARGB(255, 33, 114, 36),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
+                          statusColor = Colors.green.shade100;
+                          statusText = 'Sua Candidatura Aceita!';
+                          statusIcon = Icons.check_circle;
                         } else if (myApplication.status == 'pending') {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.yellow.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.access_time, color: Colors.yellow.shade700, size: 20),
-                                const SizedBox(width: 5),
-                                const Text(
-                                  'Sua Candidatura Pendente',
-                                  style: TextStyle(
-                                    color: Colors.orange,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else if (myApplication.status == 'declined') {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.cancel, color: Colors.red.shade700, size: 20),
-                                const SizedBox(width: 5),
-                                const Text(
-                                  'Sua Candidatura Recusada!',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
+                          statusColor = Colors.yellow.shade100;
+                          statusText = 'Sua Candidatura Pendente';
+                          statusIcon = Icons.access_time;
+                        } else { // 'declined'
+                          statusColor = Colors.red.shade100;
+                          statusText = 'Sua Candidatura Recusada!';
+                          statusIcon = Icons.cancel;
                         }
-                      }
-                      // Se não aplicou e a vaga não está aceita por ninguém, pode aplicar
-                      if (!widget.job.accepted) {
+
+                        return Expanded( // Wrap with Expanded to take available space
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(statusIcon, color: statusColor.darken(50), size: 20), // Use darken para uma cor mais escura do ícone
+                                const SizedBox(width: 5),
+                                Flexible( // Adicionado Flexible para lidar com textos longos
+                                  child: Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      color: statusColor.darken(50), // Use darken para uma cor de texto mais escura
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis, // Para evitar overflow de texto
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      } else {
+                        // Se não aplicou e a vaga não está aceita por ninguém, pode aplicar
                         return Expanded(
                           child: ElevatedButton.icon(
                             onPressed: _isApplying ? null : _applyForJob, // Desabilita o botão durante o carregamento
@@ -322,7 +327,7 @@ class _JobCardState extends State<JobCard> {
                                 ? const Text('Candidatando...', style: TextStyle(color: branco))
                                 : const Text('Candidatar-se', style: TextStyle(color: branco)),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: laranjaVivo,
+                              backgroundColor: accentColor, // Usando sua accentColor
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -331,9 +336,24 @@ class _JobCardState extends State<JobCard> {
                           ),
                         );
                       }
-                      // Se a vaga já foi aceita por outro, não mostra botão para prestadores
-                      return Container();
                     },
+                  ),
+                ] else if (isPrestador && widget.job.accepted) ...[ // Se for prestador e a vaga já foi aceita por outro
+                  // Mostra que a vaga já foi atribuída
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.grey.shade700, size: 20),
+                        const SizedBox(width: 5),
+                        const Text('Vaga Atribuída a Outro Prestador', style: TextStyle(color: cinzaEscuro, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -341,6 +361,20 @@ class _JobCardState extends State<JobCard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Extensão para escurecer a cor, útil para ícones e textos de status.
+extension ColorExtension on Color {
+  Color darken([int percent = 10]) {
+    assert(1 <= percent && percent <= 100);
+    final f = 1 - percent / 100;
+    return Color.fromARGB(
+      alpha,
+      (red * f).round(),
+      (green * f).round(),
+      (blue * f).round(),
     );
   }
 }

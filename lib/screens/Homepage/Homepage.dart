@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:trampoja_app/screens/calendarScreen/CalendarScreen.dart';
 import 'package:trampoja_app/screens/notificationScreen/NotificationScreen.dart';
-import 'package:trampoja_app/screens/ProfileScreen/ProfileScreen.dart';
 import 'package:trampoja_app/Screens/jobScreen/JobScreen.dart';
 import 'package:trampoja_app/screens/messagesScreen/MessagesScreen.dart';
-
+import 'package:trampoja_app/screens/profileScreen/ProfileScreen.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -14,7 +13,7 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
-  int _selectedIndex = 2; 
+  int _selectedIndex = 2;
 
   final List<Widget> _screens = const [
     CalendarScreen(),
@@ -35,6 +34,8 @@ class _HomepageState extends State<Homepage> {
     return Scaffold(
       body: _screens[_selectedIndex],
       floatingActionButton: FloatingActionButton(
+        // === CORREÇÃO AQUI: Adicione uma heroTag única para o FAB da Homepage ===
+        heroTag: 'homepage_main_fab', // Tag única para o FAB principal
         backgroundColor: const Color(0xFFFF6F00),
         onPressed: () {
           _onItemTapped(2); // Vai para "Vagas"
@@ -52,7 +53,7 @@ class _HomepageState extends State<Homepage> {
             children: [
               _buildNavItem(Icons.calendar_month, 0, 'Calendário'),
               _buildNavItem(Icons.notifications_outlined, 1, 'Notificações'),
-              const SizedBox(width: 40), 
+              const SizedBox(width: 40),
               _buildNavItem(Icons.chat_outlined, 3, 'Mensagens'),
               _buildNavItem(Icons.person_outline, 4, 'Perfil'),
             ],

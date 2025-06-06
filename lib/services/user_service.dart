@@ -1,25 +1,43 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
-import 'package:firebase_auth/firebase_auth.dart'; // Importe o Firebase Auth aqui
 
 class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final SupabaseClient supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
+  final FirebaseStorage _firebaseStorage = FirebaseStorage.instance;
 
+  // Flag para controlar o estado do ImagePicker, evitando múltiplas aberturas.
+  bool _isPickingImage = false;
+
+  /// Atualiza os dados do usuário no Firestore para um dado ID de usuário.
   Future<void> updateUserData(String userId, Map<String, dynamic> data) async {
     await _firestore.collection('users').doc(userId).update(data);
   }
 
+  /// Seleciona uma imagem da galeria e a envia para o Firebase Storage.
+  /// Em seguida, atualiza o perfil do usuário no Firestore com a nova URL da imagem.
   Future<String?> pickAndUploadProfileImage(String userId, BuildContext context) async {
+    // Impede que o seletor de imagem seja aberto múltiplas vezes.
+    if (_isPickingImage) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('O seletor de imagem já está aberto. Por favor, aguarde ou feche-o.')),
+        );
+      }
+      return null;
+    }
+
+    _isPickingImage = true; // Define a flag como true antes de iniciar a operação.
+
     try {
-      // 1. Obter o usuário Firebase autenticado
+      // 1. Obtém o usuário autenticado do Firebase.
       final User? firebaseUser = FirebaseAuth.instance.currentUser;
 
-      // Se não houver usuário Firebase logado, não podemos prosseguir
+      // Se nenhum usuário Firebase estiver logado, não podemos prosseguir.
       if (firebaseUser == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -29,26 +47,10 @@ class UserService {
         return null;
       }
 
-      // 2. Obter o token JWT do Firebase
-      // Isso é necessário para que o Supabase possa autenticar a requisição
-      final String? firebaseIdToken = await firebaseUser.getIdToken();
-
-      if (firebaseIdToken == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Erro: Não foi possível obter o token de autenticação do Firebase.')),
-          );
-        }
-        return null;
-      }
-
-      // 3. Informar ao cliente Supabase sobre o token JWT do Firebase
-      // Isso permite que as políticas de RLS do Supabase usem auth.uid() e auth.role() corretamente
-      await supabase.auth.setSession(firebaseIdToken); // Configura a sessão Supabase com o token Firebase
-
-      // --- Início da lógica de seleção e upload da imagem ---
+      // --- Início da lógica de seleção e upload de imagem ---
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
+      // Se nenhuma imagem foi selecionada (usuário cancelou).
       if (image == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -64,31 +66,23 @@ class UserService {
         );
       }
 
-      // Nome do arquivo com subpastas baseadas no userId e timestamp para unicidade
-      final String fileName = 'profile_pictures/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      // Nome do bucket Supabase, que agora deve ser 'trampojaapp'
-      const String bucketName = 'trampojaapp';
+      // Define o caminho no Firebase Storage (ex: 'profile_pictures/userId/timestamp.jpg').
+      final String filePath = 'profile_pictures/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final File file = File(image.path);
 
-      // 4. Realizar o upload da imagem para o Supabase Storage
-      // O Supabase usará a sessão configurada com o token Firebase para a checagem de RLS
-      final String path = await supabase.storage
-          .from(bucketName)
-          .upload(
-            fileName,
-            File(image.path),
-            fileOptions: const FileOptions(
-              cacheControl: '3600', // Define o cache da imagem
-              upsert: true,        // Sobrescreve se o arquivo já existir com o mesmo nome
-              contentType: 'image/jpeg', // Tipo de conteúdo para a imagem
-            ),
-          );
+      // 2. Cria uma referência para o local de upload no Firebase Storage.
+      final Reference ref = _firebaseStorage.ref().child(filePath);
 
-      // 5. Obter a URL pública da imagem recém-carregada
-      final String downloadUrl = supabase.storage
-          .from(bucketName)
-          .getPublicUrl(path);
+      // 3. Envia o arquivo para o Firebase Storage.
+      final UploadTask uploadTask = ref.putFile(file);
 
-      // 6. Atualizar a URL da foto no Firestore
+      // 4. Aguarda a conclusão do upload e obtém o snapshot.
+      final TaskSnapshot snapshot = await uploadTask;
+
+      // 5. Obtém a URL de download da imagem enviada.
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // 6. Atualiza a URL da foto no Firestore.
       if (context.mounted) {
         await updateUserData(userId, {'photoUrl': downloadUrl});
         ScaffoldMessenger.of(context).showSnackBar(
@@ -97,16 +91,14 @@ class UserService {
       }
       return downloadUrl;
 
-    // Tratamento de exceções específicas do Storage (Supabase)
-    } on StorageException catch (e) {
-      print('Erro no upload para Supabase Storage: ${e.message}');
+    } on FirebaseException catch (e) {
+      print('Erro no Firebase Storage: ${e.message}');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro no upload da imagem: ${e.message}')),
         );
       }
       return null;
-    // Tratamento de outras exceções (Firebase, ImagePicker, etc.)
     } catch (e) {
       print('Erro inesperado ao selecionar/enviar imagem: $e');
       if (context.mounted) {
@@ -115,6 +107,9 @@ class UserService {
         );
       }
       return null;
+    } finally {
+      // Garante que a flag seja resetada, independente de sucesso ou erro.
+      _isPickingImage = false;
     }
   }
 }

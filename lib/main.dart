@@ -6,8 +6,6 @@ import 'package:trampoja_app/screens/Homepage/Homepage.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // Certifique-se de que está importado
 
 
 Future<void> main() async {
@@ -18,14 +16,6 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // --- Inicialização do Supabase ---
-  await dotenv.load(fileName: ".env");
-
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!, 
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!, 
-    debug: true, // Mantenha como true para desenvolvimento
-  );
 
   runApp(const App());
 }

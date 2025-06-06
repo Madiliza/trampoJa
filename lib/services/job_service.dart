@@ -34,12 +34,7 @@ class JobService {
     final applications = await _firestore.collection('jobs').doc(jobId).collection('applications').get();
     for (var doc in applications.docs) {
       final app = Application.fromFirestore(doc);
-      // **REMOVA ESTA LINHA OU CRIE UMA CLOUD FUNCTION PARA ELA SE FOR NECESSÁRIO**
-      // if (app.status == 'accepted') {
-      //   await _firestore.collection('users').doc(app.applicantId).update({
-      //     'jobsCompleted': FieldValue.arrayRemove([jobId]),
-      //   });
-      // }
+
       await doc.reference.delete(); // Deleta o documento da aplicação
     }
     // 2. Finalmente, exclui a vaga em si
@@ -83,12 +78,6 @@ class JobService {
       'acceptedByUserId': acceptedByUserId,
     });
 
-    // 3. **REMOVA A LINHA PROBLEMÁTICA DAQUI!**
-    //    Esta operação será tratada pela Cloud Function.
-    //    await _firestore.collection('users').doc(acceptedByUserId).update({
-    //      'jobsCompleted': FieldValue.arrayUnion([jobId]),
-    //    });
-
     // 4. Recusa todas as outras candidaturas pendentes para esta vaga
     final otherApplications = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'pending').get();
     for (var doc in otherApplications.docs) {
@@ -105,11 +94,12 @@ class JobService {
       'status': 'declined',
     });
 
-    // 2. **REMOVA A LINHA PROBLEMÁTICA DAQUI!**
-    //    Esta operação será tratada pela Cloud Function.
-    //    await _firestore.collection('users').doc(declinedByUserId).update({
-    //      'jobsCompleted': FieldValue.arrayRemove([jobId]),
-    //    });
+    // 2. Atualiza a vaga para indicar que foi recusada
+    await _firestore.collection('jobs').doc(jobId).update({
+      'accepted': false, // Garante que accepted seja false
+      'declined': true,
+      'acceptedByUserId': null, // Limpa o usuário que aceitou
+    });
 
     // 3. Verifica se a vaga precisa ser "desatribuída" (se não houver mais aplicações aceitas ou pendentes)
     final remainingPendingApplications = await _firestore.collection('jobs').doc(jobId).collection('applications').where('status', isEqualTo: 'pending').get();

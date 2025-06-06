@@ -255,13 +255,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 32),
                     ElevatedButton.icon(
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
+                      // Este botão aqui no estado de não logado não deve fazer signOut
+                      // mas sim, por exemplo, navegar para a tela de login.
+                      onPressed: () {
+                        // Implemente a navegação para a tela de login aqui.
+                        // Ex: Navigator.of(context).pushNamed('/login');
+                        print('Botão "Ir para Login" clicado. Implemente a navegação.');
                       },
-                      icon: const Icon(Icons.logout, color: branco, size: 20),
-                      label: const Text('Sair', style: TextStyle(color: branco, fontSize: 16, fontWeight: FontWeight.w600)),
+                      icon: const Icon(Icons.login, color: branco, size: 20),
+                      label: const Text('Ir para Login', style: TextStyle(color: branco, fontSize: 16, fontWeight: FontWeight.w600)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: errorColor,
+                        backgroundColor: primaryColor,
                         padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -315,6 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ElevatedButton.icon(
                           onPressed: () async {
                             await FirebaseAuth.instance.signOut();
+                            // Talvez redirecionar para a tela de registro/login
                           },
                           icon: const Icon(Icons.logout, color: branco, size: 20),
                           label: const Text('Sair', style: TextStyle(color: branco, fontSize: 16, fontWeight: FontWeight.w600)),
@@ -342,10 +347,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     ProfileAvatarEditor(
                       photoUrl: userData.photoUrl,
-                      // A UserService.pickAndUploadProfileImage deve lidar com o upload para o Supabase
-                      // e atualizar a photoUrl no Firestore com a URL pública do Supabase.
-                      onEditPressed: () =>
-                          _userService.pickAndUploadProfileImage(user.uid, context),
+                      // A UserService.pickAndUploadProfileImage deve lidar com o upload.
+                      // Não precisa de _isPickingImage aqui, pois o serviço já o gerencia.
+                      onEditPressed: () => _userService.pickAndUploadProfileImage(user.uid, context),
                     ),
                     const SizedBox(height: 24),
 
@@ -380,7 +384,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   title: 'Editar Dados Pessoais',
                                   controllers: {
                                     'name': TextEditingController(text: userData.name),
-                                    'phone': TextEditingController(text: userData.phone), // Ajustado para 'phone'
+                                    'phone': TextEditingController(text: userData.phone),
                                   },
                                   onSave: (data) {
                                     _updateUserData(context, user.uid, data);
@@ -423,9 +427,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     context: context,
                                     title: 'Editar Informações Profissionais',
                                     controllers: {
-                                      'profession': TextEditingController(text: userData.profession), // Ajustado para 'profession'
-                                      'experience': TextEditingController(text: userData.experience), // Ajustado para 'experience'
-                                      'skills': TextEditingController(text: userData.skills),       // Ajustado para 'skills'
+                                      'profession': TextEditingController(text: userData.profession),
+                                      'experience': TextEditingController(text: userData.experience),
+                                      'skills': TextEditingController(text: userData.skills),
                                     },
                                     onSave: (data) {
                                       _updateUserData(context, user.uid, data);
@@ -468,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   context: context,
                                   title: 'Editar Sobre Mim',
                                   controllers: {
-                                    'aboutMe': TextEditingController(text: userData.aboutMe), // Ajustado para 'aboutMe'
+                                    'aboutMe': TextEditingController(text: userData.aboutMe),
                                   },
                                   onSave: (data) {
                                     _updateUserData(context, user.uid, data);

@@ -108,9 +108,13 @@ class ApplicantListDialog extends StatelessWidget {
                           children: [
                             ListTile(
                               leading: CircleAvatar(
+                                backgroundColor: Colors.grey[200], // Adicionado para um fundo em caso de placeholder
                                 backgroundImage: applicantData.photoUrl.isNotEmpty
-                                    ? NetworkImage(applicantData.photoUrl)
-                                    : const NetworkImage('https://via.placeholder.com/150'), // Imagem padrão
+                                    ? NetworkImage(applicantData.photoUrl) as ImageProvider
+                                    : null, 
+                                child: applicantData.photoUrl.isEmpty
+                                    ? Icon(Icons.person, size: 40, color: Colors.grey[600]) // Ícone de pessoa como fallback
+                                    : null,
                               ),
                               title: Text(
                                 applicantName,
@@ -125,7 +129,7 @@ class ApplicantListDialog extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ViewProfileScreen(userId: applicantId), // <-- CORREÇÃO AQUI
+                                    builder: (context) => ViewProfileScreen(userId: applicantId), // <-- Correto
                                   ),
                                 );
                               },

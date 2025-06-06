@@ -19,7 +19,6 @@ dependencies:
   http: ^1.4.0
   firebase_storage: ^11.7.4
   image_picker: ^1.1.2
-  supabase_flutter: ^2.5.4
   flutter_dotenv: ^5.1.0
 
 dev_dependencies:
@@ -46,4 +45,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
-    - .env
+    - assets/default_avatar.png

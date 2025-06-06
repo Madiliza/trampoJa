@@ -1,4 +1,4 @@
-// lib/screens/jobScreen/job_screen.dart
+// lib/screens/jobScreen/JobScreen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -229,6 +229,10 @@ class _JobScreenState extends State<JobScreen> {
 
               if (isContratante) {
                 return FloatingActionButton(
+                  // === CORREÇÃO AQUI: Definir heroTag: null para este FAB ===
+                  // Este FAB é condicional e não deve ter uma animação Hero que conflita
+                  // com o FAB principal do Homepage.
+                  heroTag: null,
                   onPressed: () => _showCreateJobDialog(currentUser.uid),
                   backgroundColor: laranjaVivo,
                   child: const Icon(Icons.add, color: branco),
